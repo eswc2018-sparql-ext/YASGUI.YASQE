@@ -1,7 +1,3 @@
-.classpath
-bower_components
-node_modules
-.project
-.settings
-/bin
-
+/node_modules
+/dist
+/build
