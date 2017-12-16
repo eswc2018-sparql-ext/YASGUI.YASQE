@@ -1,47 +1,8 @@
-/*
-* TRIE implementation in Javascript
-* Copyright (c) 2010 Saurabh Odhyan | http://odhyan.com
-*
-* Permission is hereby granted, free of charge, to any person obtaining a copy
-* of this software and associated documentation files (the "Software"), to deal
-* in the Software without restriction, including without limitation the rights
-* to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-* copies of the Software, and to permit persons to whom the Software is
-* furnished to do so, subject to the following conditions:
-*
-* The above copyright notice and this permission notice shall be included in
-* all copies or substantial portions of the Software.
-*
-* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-* IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-* FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-* AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-* LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-* OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-* THE SOFTWARE.
-*
-* Date: Nov 7, 2010
-*/
+export default class Trie {
+  private words = 0;
+  private prefixes = 0;
+  private children: { [char: string]: Trie } = {};
 
-/*
-* A trie, or prefix tree, is a multi-way tree structure useful for storing strings over an alphabet.
-* It has been used to store large dictionaries of English (say) words in spell-checking programs
-* and in natural-language "understanding" programs.
-* @see http://en.wikipedia.org/wiki/Trie
-* @see http://www.csse.monash.edu.au/~lloyd/tildeAlgDS/Tree/Trie/
-/*
-
-* @class Trie
-* @constructor
-*/
-
-var Trie = module.exports = function() {
-  this.words = 0;
-  this.prefixes = 0;
-  this.children = [];
-};
-
-Trie.prototype = {
   /*
     * Insert a word into the dictionary.
     * Recursively traverse through the trie nodes, and create new node if does not already exist.
@@ -51,13 +12,15 @@ Trie.prototype = {
     * @param {Integer} pos Current index of the string to be inserted
     * @return {Void}
     */
-  insert: function(str, pos) {
+  insert(str: string, pos?: number) {
     if (str.length == 0) {
       //blank string cannot be inserted
       return;
     }
 
-    var T = this, k, child;
+    var T = this,
+      k,
+      child;
 
     if (pos === undefined) {
       pos = 0;
@@ -74,8 +37,7 @@ Trie.prototype = {
     }
     child = T.children[k];
     child.insert(str, pos + 1);
-  },
-
+  }
   /*
     * Remove a word from the dictionary.
     *
@@ -84,12 +46,13 @@ Trie.prototype = {
     * @param {Integer} pos Current index of the string to be removed
     * @return {Void}
     */
-  remove: function(str, pos) {
+  remove(str: string, pos?: number) {
     if (str.length == 0) {
       return;
     }
-
-    var T = this, k, child;
+    var T = this,
+      k,
+      child;
 
     if (pos === undefined) {
       pos = 0;
@@ -105,7 +68,7 @@ Trie.prototype = {
     k = str[pos];
     child = T.children[k];
     child.remove(str, pos + 1);
-  },
+  }
 
   /*
     * Update an existing word in the dictionary.
@@ -116,13 +79,13 @@ Trie.prototype = {
     * @param {String} strNew The new word to be inserted
     * @return {Void}
     */
-  update: function(strOld, strNew) {
+  update(strOld: string, strNew: string) {
     if (strOld.length == 0 || strNew.length == 0) {
       return;
     }
     this.remove(strOld);
     this.insert(strNew);
-  },
+  }
 
   /*
     * Count the number of times a given word has been inserted into the dictionary
@@ -132,12 +95,15 @@ Trie.prototype = {
     * @param {Integer} pos Current index of the given word
     * @return {Integer} The number of times a given word exists in the dictionary
     */
-  countWord: function(str, pos) {
+  countWord(str: string, pos?: number) {
     if (str.length == 0) {
       return 0;
     }
 
-    var T = this, k, child, ret = 0;
+    var T = this,
+      k,
+      child,
+      ret = 0;
 
     if (pos === undefined) {
       pos = 0;
@@ -152,7 +118,7 @@ Trie.prototype = {
       ret = child.countWord(str, pos + 1);
     }
     return ret;
-  },
+  }
 
   /*
     * Count the number of times a given prefix exists in the dictionary
@@ -162,12 +128,15 @@ Trie.prototype = {
     * @param {Integer} pos Current index of the given prefix
     * @return {Integer} The number of times a given prefix exists in the dictionary
     */
-  countPrefix: function(str, pos) {
+  countPrefix(str: string, pos: number) {
     if (str.length == 0) {
       return 0;
     }
 
-    var T = this, k, child, ret = 0;
+    var T = this,
+      k: string,
+      child,
+      ret = 0;
 
     if (pos === undefined) {
       pos = 0;
@@ -182,16 +151,16 @@ Trie.prototype = {
       ret = child.countPrefix(str, pos + 1);
     }
     return ret;
-  },
+  }
 
   /*
-    * Find a word in the dictionary
-    *
-    * @method find
-    * @param {String} str The word to find in the dictionary
-    * @return {Boolean} True if the word exists in the dictionary, else false
-    */
-  find: function(str) {
+      * Find a word in the dictionary
+      *
+      * @method find
+      * @param {String} str The word to find in the dictionary
+      * @return {Boolean} True if the word exists in the dictionary, else false
+      */
+  find(str: string) {
     if (str.length == 0) {
       return false;
     }
@@ -201,17 +170,20 @@ Trie.prototype = {
     } else {
       return false;
     }
-  },
+  }
 
   /*
-    * Get all words in the dictionary
-    *
-    * @method getAllWords
-    * @param {String} str Prefix of current word
-    * @return {Array} Array of words in the dictionary
-    */
-  getAllWords: function(str) {
-    var T = this, k, child, ret = [];
+      * Get all words in the dictionary
+      *
+      * @method getAllWords
+      * @param {String} str Prefix of current word
+      * @return {Array} Array of words in the dictionary
+      */
+  getAllWords(str: string): string[] {
+    var T = this,
+      k,
+      child,
+      ret = [];
     if (str === undefined) {
       str = "";
     }
@@ -228,18 +200,20 @@ Trie.prototype = {
       }
     }
     return ret;
-  },
+  }
 
   /*
-    * Autocomplete a given prefix
-    *
-    * @method autoComplete
-    * @param {String} str Prefix to be completed based on dictionary entries
-    * @param {Integer} pos Current index of the prefix
-    * @return {Array} Array of possible suggestions
-    */
-  autoComplete: function(str, pos) {
-    var T = this, k, child;
+      * Autocomplete a given prefix
+      *
+      * @method autoComplete
+      * @param {String} str Prefix to be completed based on dictionary entries
+      * @param {Integer} pos Current index of the prefix
+      * @return {Array} Array of possible suggestions
+      */
+  autoComplete(str: string, pos?: number): string[] {
+    var T = this,
+      k,
+      child;
     if (str.length == 0) {
       if (pos === undefined) {
         return T.getAllWords(str);
@@ -261,4 +235,4 @@ Trie.prototype = {
     }
     return child.autoComplete(str, pos + 1);
   }
-};
+}

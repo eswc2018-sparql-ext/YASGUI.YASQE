@@ -1,26 +1,32 @@
 /* global __dirname, require, module*/
-const LiveReloadPlugin = require('webpack-livereload-plugin');
-const HtmlWebpackPlugin = require('html-webpack-plugin');
+const LiveReloadPlugin = require("webpack-livereload-plugin");
+const HtmlWebpackPlugin = require("html-webpack-plugin");
 const webpack = require("webpack");
 const UglifyJsPlugin = webpack.optimize.UglifyJsPlugin;
 const path = require("path");
 const isProd = process.env.NODE_ENV === "production";
-const isDev = !isProd
-let libraryName = "yasqe";
+const isDev = !isProd;
+const scopify   = require('postcss-scopify');
+let libraryName = "Yasqe";
+const ExtractTextPlugin = require("extract-text-webpack-plugin");
 
 let plugins = [],
   outputFile;
 
 if (isDev) {
-  outputFile = libraryName + ".js";
+  outputFile = libraryName.toLowerCase() + ".js";
   //ignore these, to avoid infinite loops while watching
   plugins.push(new webpack.WatchIgnorePlugin([/\.js$/, /\.d\.ts$/]));
-  plugins.push(new LiveReloadPlugin())
-  plugins.push(new webpack.HotModuleReplacementPlugin())
-  plugins.push(new HtmlWebpackPlugin())
+  plugins.push(new LiveReloadPlugin());
+  plugins.push(new webpack.HotModuleReplacementPlugin());
+  plugins.push(
+    new HtmlWebpackPlugin({
+      template: "webpack/index.html"
+    })
+  );
 } else {
   plugins.push(new UglifyJsPlugin({ minimize: true }));
-  outputFile = libraryName + ".min.js";
+  outputFile = libraryName.toLowerCase() + ".min.js";
 }
 
 const config = {
@@ -28,7 +34,7 @@ const config = {
   devtool: isDev ? "cheap-module-source-map" : false,
   cache: isDev,
   output: {
-    path: __dirname + "/build",
+    path: path.resolve(__dirname, "..", "build"),
     filename: outputFile,
     library: libraryName,
     libraryTarget: "umd",
@@ -41,13 +47,29 @@ const config = {
         test: /\.tsx?$/,
         loader: "ts-loader",
         options: {
-          configFile: `tsconfig${isProd?'-build':''}.json`
+          configFile: `tsconfig-build.json`
           // transpileOnly: isDev
         }
       },
       {
         test: /\.scss$/,
-        loader: 'sass-loader'
+        loader: "sass-loader"
+      },
+      {
+        test: /\.css$/,
+        use: isDev
+          ? [
+              "style-loader",
+              { loader: "css-loader", options: { importLoaders: 1 } },
+              {
+                loader: "postcss-loader",
+                options: { plugins:[scopify('.yasqe')] }
+              }
+            ]
+          : ExtractTextPlugin.extract({
+              fallback: "style-loader",
+              use: ["css-loader"]
+            })
       }
     ]
   },
