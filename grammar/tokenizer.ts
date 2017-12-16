@@ -1,75 +1,103 @@
-"use strict";
-var CodeMirror = require("codemirror");
-CodeMirror.defineMode("sparql11", function(config, parserConfig) {
-  var indentUnit = config.indentUnit;
+import * as CodeMirror from "codemirror";
+export interface State {
+  tokenize: (stream: CodeMirror.StringStream, state:State)=>string
+  inLiteral: 'SINGLE' | 'DOUBLE';
+  errorStartPos: number;
+  errorEndPos: number;
+  queryType:
+    | "SELECT"
+    | "CONSTRUCT"
+    | "ASK"
+    | "DESCRIBE"
+    | "INSERT"
+    | "DELETE"
+    | "LOAD"
+    | "CLEAR"
+    | "CREATE"
+    | "DROP"
+    | "COPY"
+    | "MOVE"
+    | "ADD";
+  inPrefixDecl: boolean;
+  allowVars: boolean;
+  allowBnodes: boolean;
+  storeProperty: boolean;
+  OK: boolean;
+  possibleCurrent: string[];
+  possibleNext: string[];
+  stack: any[];
+  variables: { [varName: string]: string };
+  prefixes: { [prefLabel: string]: string };
+  complete: boolean;
+  lastProperty: string;
+  errorMsg: string;
+  lastPredicateOffset: number;
+  currentPnameNs: string
+}
+export interface Token {
+  quotePos: 'end' | 'start' | 'content',
+  cat: string,
+  style: string
+  text: string,
+  start: number
+}
+export default function(config:CodeMirror.EditorConfiguration, parserConfig: any):CodeMirror.Mode<State> {
+  const grammar = require("./_tokenizer-table.js");
+  const ll1_table = grammar.table;
 
-  var grammar = require("./_tokenizer-table.js");
-  var ll1_table = grammar.table;
+  const IRI_REF = '<[^<>"`|{}^\\\x00-\x20]*>';
+  const PN_CHARS_BASE =
+    "[A-Za-z\\u00C0-\\u00D6\\u00D8-\\u00F6\\u00F8-\\u02FF\\u0370-\\u037D\\u037F-\\u1FFF\\u200C-\\u200D\\u2070-\\u218F\\u2C00-\\u2FEF\\u3001-\\uD7FF\\uF900-\\uFDCF\\uFDF0-\\uFFFD]";
+  const PN_CHARS_U = PN_CHARS_BASE + "|_";
 
-  var IRI_REF = '<[^<>"`\|\{\}\^\\\x00-\x20]*>';
-  /*
-	 * PN_CHARS_BASE =
-	 * '[A-Z]|[a-z]|[\\u00C0-\\u00D6]|[\\u00D8-\\u00F6]|[\\u00F8-\\u02FF]|[\\u0370-\\u037D]|[\\u037F-\\u1FFF]|[\\u200C-\\u200D]|[\\u2070-\\u218F]|[\\u2C00-\\u2FEF]|[\\u3001-\\uD7FF]|[\\uF900-\\uFDCF]|[\\uFDF0-\\uFFFD]|[\\u10000-\\uEFFFF]';
-	 */
+  const PN_CHARS = "(" + PN_CHARS_U + "|-|[0-9\\u00B7\\u0300-\\u036F\\u203F-\\u2040])";
+  const VARNAME = "(" + PN_CHARS_U + "|[0-9])" + "(" + PN_CHARS_U + "|[0-9\\u00B7\\u0300-\\u036F\\u203F-\\u2040])*";
+  const VAR1 = "\\?" + VARNAME;
+  const VAR2 = "\\$" + VARNAME;
 
-  var PN_CHARS_BASE = "[A-Za-z\\u00C0-\\u00D6\\u00D8-\\u00F6\\u00F8-\\u02FF\\u0370-\\u037D\\u037F-\\u1FFF\\u200C-\\u200D\\u2070-\\u218F\\u2C00-\\u2FEF\\u3001-\\uD7FF\\uF900-\\uFDCF\\uFDF0-\\uFFFD]";
-  var PN_CHARS_U = PN_CHARS_BASE + "|_";
+  const PN_PREFIX = "(" + PN_CHARS_BASE + ")(((" + PN_CHARS + ")|\\.)*(" + PN_CHARS + "))?";
 
-  var PN_CHARS = "(" + PN_CHARS_U + "|-|[0-9\\u00B7\\u0300-\\u036F\\u203F-\\u2040])";
-  var VARNAME = "(" + PN_CHARS_U + "|[0-9])" + "(" + PN_CHARS_U + "|[0-9\\u00B7\\u0300-\\u036F\\u203F-\\u2040])*";
-  var VAR1 = "\\?" + VARNAME;
-  var VAR2 = "\\$" + VARNAME;
+  const HEX = "[0-9A-Fa-f]";
+  const PERCENT = "(%" + HEX + HEX + ")";
+  const PN_LOCAL_ESC = "(\\\\[_~\\.\\-!\\$&'\\(\\)\\*\\+,;=/\\?#@%])";
+  const PLX = "(" + PERCENT + "|" + PN_LOCAL_ESC + ")";
+  const PN_LOCAL =
+    "(" + PN_CHARS_U + "|:|[0-9]|" + PLX + ")((" + PN_CHARS + "|\\.|:|" + PLX + ")*(" + PN_CHARS + "|:|" + PLX + "))?";
+  const BLANK_NODE_LABEL = "_:(" + PN_CHARS_U + "|[0-9])((" + PN_CHARS + "|\\.)*" + PN_CHARS + ")?";
+  const PNAME_NS = "(" + PN_PREFIX + ")?:";
+  const PNAME_LN = PNAME_NS + PN_LOCAL;
+  const LANGTAG = "@[a-zA-Z]+(-[a-zA-Z0-9]+)*";
 
-  var PN_PREFIX = "(" + PN_CHARS_BASE + ")(((" + PN_CHARS + ")|\\.)*(" + PN_CHARS + "))?";
+  const EXPONENT = "[eE][\\+-]?[0-9]+";
+  const INTEGER = "[0-9]+";
+  const DECIMAL = "(([0-9]+\\.[0-9]*)|(\\.[0-9]+))";
+  const DOUBLE = "(([0-9]+\\.[0-9]*" + EXPONENT + ")|" + "(\\.[0-9]+" + EXPONENT + ")|" + "([0-9]+" + EXPONENT + "))";
 
-  var HEX = "[0-9A-Fa-f]";
-  var PERCENT = "(%" + HEX + HEX + ")";
-  var PN_LOCAL_ESC = "(\\\\[_~\\.\\-!\\$&'\\(\\)\\*\\+,;=/\\?#@%])";
-  var PLX = "(" + PERCENT + "|" + PN_LOCAL_ESC + ")";
-  var PN_LOCAL = "(" +
-    PN_CHARS_U +
-    "|:|[0-9]|" +
-    PLX +
-    ")((" +
-    PN_CHARS +
-    "|\\.|:|" +
-    PLX +
-    ")*(" +
-    PN_CHARS +
-    "|:|" +
-    PLX +
-    "))?";
-  var BLANK_NODE_LABEL = "_:(" + PN_CHARS_U + "|[0-9])((" + PN_CHARS + "|\\.)*" + PN_CHARS + ")?";
-  var PNAME_NS = "(" + PN_PREFIX + ")?:";
-  var PNAME_LN = PNAME_NS + PN_LOCAL;
-  var LANGTAG = "@[a-zA-Z]+(-[a-zA-Z0-9]+)*";
+  const INTEGER_POSITIVE = "\\+" + INTEGER;
+  const DECIMAL_POSITIVE = "\\+" + DECIMAL;
+  const DOUBLE_POSITIVE = "\\+" + DOUBLE;
+  const INTEGER_NEGATIVE = "-" + INTEGER;
+  const DECIMAL_NEGATIVE = "-" + DECIMAL;
+  const DOUBLE_NEGATIVE = "-" + DOUBLE;
 
-  var EXPONENT = "[eE][\\+-]?[0-9]+";
-  var INTEGER = "[0-9]+";
-  var DECIMAL = "(([0-9]+\\.[0-9]*)|(\\.[0-9]+))";
-  var DOUBLE = "(([0-9]+\\.[0-9]*" + EXPONENT + ")|" + "(\\.[0-9]+" + EXPONENT + ")|" + "([0-9]+" + EXPONENT + "))";
-
-  var INTEGER_POSITIVE = "\\+" + INTEGER;
-  var DECIMAL_POSITIVE = "\\+" + DECIMAL;
-  var DOUBLE_POSITIVE = "\\+" + DOUBLE;
-  var INTEGER_NEGATIVE = "-" + INTEGER;
-  var DECIMAL_NEGATIVE = "-" + DECIMAL;
-  var DOUBLE_NEGATIVE = "-" + DOUBLE;
-
-  var ECHAR = "\\\\[tbnrf\\\\\"']";
+  const ECHAR = "\\\\[tbnrf\\\\\"']";
 
   //IMPORTANT: this unicode rule is not in the official grammar.
   //Reason: https://github.com/YASGUI/YASQE/issues/49
   //unicode escape sequences (which the sparql spec considers part of the pre-processing of sparql queries)
   //are marked as invalid. We have little choice (other than adding a layer of complixity) than to modify the grammar accordingly
   //however, for now only allow these escape sequences in literals (where actually, this should be allows in e.g. prefixes as well)
-  var hex4 = HEX + "{4}";
-  var unicode = "(\\\\u" + hex4 + "|\\\\U00(10|0" + HEX + ")" + hex4 + ")";
-  var LINE_BREAK = "\n";
-  var STRING_LITERAL1 = "'(([^\\x27\\x5C\\x0A\\x0D])|" + ECHAR + "|" + unicode + ")*'";
-  var STRING_LITERAL2 = '"(([^\\x22\\x5C\\x0A\\x0D])|' + ECHAR + "|" + unicode + ')*"';
+  const hex4 = HEX + "{4}";
+  const unicode = "(\\\\u" + hex4 + "|\\\\U00(10|0" + HEX + ")" + hex4 + ")";
+  const STRING_LITERAL1 = "'(([^\\x27\\x5C\\x0A\\x0D])|" + ECHAR + "|" + unicode + ")*'";
+  const STRING_LITERAL2 = '"(([^\\x22\\x5C\\x0A\\x0D])|' + ECHAR + "|" + unicode + ')*"';
 
-  var STRING_LITERAL_LONG = {
+  const STRING_LITERAL_LONG:{[key:string]: {
+    CAT: string,
+    QUOTES: string,
+    CONTENTS: string,
+    COMPLETE?:string
+  }} = {
     SINGLE: {
       CAT: "STRING_LITERAL_LONG1",
       QUOTES: "'''",
@@ -81,33 +109,23 @@ CodeMirror.defineMode("sparql11", function(config, parserConfig) {
       CONTENTS: '(("|"")?([^"\\\\]|' + ECHAR + "|" + unicode + "))*"
     }
   };
-  for (var key in STRING_LITERAL_LONG) {
-    STRING_LITERAL_LONG[key].COMPLETE = STRING_LITERAL_LONG[key].QUOTES +
-      STRING_LITERAL_LONG[key].CONTENTS +
-      STRING_LITERAL_LONG[key].QUOTES;
+  for (const key in STRING_LITERAL_LONG) {
+    STRING_LITERAL_LONG[key].COMPLETE =
+      STRING_LITERAL_LONG[key].QUOTES + STRING_LITERAL_LONG[key].CONTENTS + STRING_LITERAL_LONG[key].QUOTES;
   }
-  //	var STRING_LITERAL_LONG_QUOTES = {
-  //		"STRING_LITERAL_LONG_QUOTES1": "'''",
-  //		"STRING_LITERAL_LONG_QUOTES2": '"""',
-  //	}
-  //	var STRING_LITERAL_LONG_CONTENTS = {
-  //		"STRING_LITERAL_LONG_QUOTES1": "(('|'')?([^'\\\\]|"+ECHAR+"|"+unicode+"))*",
-  //		"STRING_LITERAL_LONG_QUOTES2": '(("|"")?([^"\\\\]|'+ECHAR+'|'+unicode+'))*'
-  //	};
-  //	var STRING_LITERAL_LONG1 = STRING_LITERAL_LONG['SINGLE'].QUOTES + STRING_LITERAL_LONG['SINGLE'].CONTENTS + STRING_LITERAL_LONG['SINGLE'].QUOTES;
-  //	var STRING_LITERAL_LONG2 = STRING_LITERAL_LONG['DOUBLE'].QUOTES + STRING_LITERAL_LONG['DOUBLE'].CONTENTS + STRING_LITERAL_LONG['DOUBLE'].QUOTES;
-
-  //	var stringLiteralLongContentTerminals = {};
-  //	for (var key in STRING_LITERAL_LONG) {
-  //		stringLiteralLongContentTerminals[key] = {
-  //			name: key,
-  //			regex:new RegExp("^"+STRING_LITERAL_LONG_CONTENTS[key]),
-  //			style:"string"
-  //		};
-  //	}
   //some regular expressions not used in regular terminals, because this is used accross lines
-  var stringLiteralLongRegex = {};
-  for (var key in STRING_LITERAL_LONG) {
+  interface LiteralRegex {
+  name: string,
+  regex: RegExp,
+  style:string
+}
+  var stringLiteralLongRegex:{[k:string]: {
+  complete:LiteralRegex,
+  contents:LiteralRegex
+  closing: LiteralRegex
+  quotes:LiteralRegex
+}} = {};
+  for (const key in STRING_LITERAL_LONG) {
     stringLiteralLongRegex[key] = {
       complete: {
         name: "STRING_LITERAL_LONG_" + key,
@@ -132,14 +150,14 @@ CodeMirror.defineMode("sparql11", function(config, parserConfig) {
     };
   }
 
-  var WS = "[\\x20\\x09\\x0D\\x0A]";
+  const WS = "[\\x20\\x09\\x0D\\x0A]";
   // Careful! Code mirror feeds one line at a time with no \n
   // ... but otherwise comment is terminated by \n
-  var COMMENT = "#([^\\n\\r]*[\\n\\r]|[^\\n\\r]*$)";
-  var WS_OR_COMMENT_STAR = "(" + WS + "|(" + COMMENT + "))*";
-  var NIL = "\\(" + WS_OR_COMMENT_STAR + "\\)";
-  var ANON = "\\[" + WS_OR_COMMENT_STAR + "\\]";
-  var terminals = [
+  const COMMENT = "#([^\\n\\r]*[\\n\\r]|[^\\n\\r]*$)";
+  const WS_OR_COMMENT_STAR = "(" + WS + "|(" + COMMENT + "))*";
+  const NIL = "\\(" + WS_OR_COMMENT_STAR + "\\)";
+  const ANON = "\\[" + WS_OR_COMMENT_STAR + "\\]";
+  const terminals = [
     {
       name: "WS",
       regex: new RegExp("^" + WS + "+"),
@@ -279,10 +297,11 @@ CodeMirror.defineMode("sparql11", function(config, parserConfig) {
     }
   ];
 
-  function getPossibles(symbol) {
-    var possibles = [], possiblesOb = ll1_table[symbol];
+  function getPossibles(symbol:string) {
+    var possibles = [],
+      possiblesOb = ll1_table[symbol];
     if (possiblesOb != undefined) {
-      for (var property in possiblesOb) {
+      for (const property in possiblesOb) {
         possibles.push(property.toString());
       }
     } else {
@@ -291,44 +310,44 @@ CodeMirror.defineMode("sparql11", function(config, parserConfig) {
     return possibles;
   }
 
-  function tokenBase(stream, state) {
-    function nextToken() {
-      var consumed = null;
+  function tokenBase(stream:CodeMirror.StringStream, state:State) {
+    function nextToken():Token {
+      var consumed:string[] = null;
       if (state.inLiteral) {
         var closingQuotes = false;
         //multi-line literal. try to parse contents.
-        consumed = stream.match(stringLiteralLongRegex[state.inLiteral].contents.regex, true, false);
+        consumed = stream.match(stringLiteralLongRegex[state.inLiteral].contents.regex as any, true, false) as any;
         if (consumed && consumed[0].length == 0) {
           //try seeing whether we can consume closing quotes, to avoid stopping
-          consumed = stream.match(stringLiteralLongRegex[state.inLiteral].closing.regex, true, false);
+          consumed = stream.match(stringLiteralLongRegex[state.inLiteral].closing.regex as any, true, false) as any;
           closingQuotes = true;
         }
 
         if (consumed && consumed[0].length > 0) {
           //some string content here.
-          var returnObj = {
+          const returnObj:Token = {
             quotePos: closingQuotes ? "end" : "content",
             cat: STRING_LITERAL_LONG[state.inLiteral].CAT,
             style: stringLiteralLongRegex[state.inLiteral].complete.style,
             text: consumed[0],
             start: stream.start
           };
-          if (closingQuotes) state.inLiteral = false;
+          if (closingQuotes) state.inLiteral = null;
           return returnObj;
         }
       }
 
       //Multiline literals
-      for (var quoteType in stringLiteralLongRegex) {
-        consumed = stream.match(stringLiteralLongRegex[quoteType].quotes.regex, true, false);
+      for (const quoteType in stringLiteralLongRegex) {
+        consumed = stream.match(stringLiteralLongRegex[quoteType].quotes.regex as any, true, false) as any;
         if (consumed) {
-          var quotePos;
+          var quotePos:Token['quotePos'];
           if (state.inLiteral) {
             //end of literal. everything is fine
-            state.inLiteral = false;
+            state.inLiteral = null;
             quotePos = "end";
           } else {
-            state.inLiteral = quoteType;
+            state.inLiteral = <any>quoteType;
             quotePos = "start";
           }
           return {
@@ -343,79 +362,83 @@ CodeMirror.defineMode("sparql11", function(config, parserConfig) {
 
       // Tokens defined by individual regular expressions
       for (var i = 0; i < terminals.length; ++i) {
-        consumed = stream.match(terminals[i].regex, true, false);
+        consumed = stream.match(terminals[i].regex as any, true, false) as any;
         if (consumed) {
           return {
             cat: terminals[i].name,
             style: terminals[i].style,
             text: consumed[0],
-            start: stream.start
+            start: stream.start,
+            quotePos: null
           };
         }
       }
 
       // Keywords
-      consumed = stream.match(grammar.keywords, true, false);
+      consumed = stream.match(grammar.keywords, true, false) as any;
       if (consumed)
         return {
           cat: stream.current().toUpperCase(),
           style: "keyword",
           text: consumed[0],
-          start: stream.start
+          start: stream.start,
+          quotePos: null
         };
 
       // Punctuation
-      consumed = stream.match(grammar.punct, true, false);
+      consumed = stream.match(grammar.punct, true, false) as any;
       if (consumed)
         return {
           cat: stream.current(),
           style: "punc",
           text: consumed[0],
-          start: stream.start
+          start: stream.start,
+          quotePos: null
         };
 
       // Token is invalid
       // better consume something anyway, or else we're stuck
-      consumed = stream.match(/^.[A-Za-z0-9]*/, true, false);
+      consumed = stream.match(/^.[A-Za-z0-9]*/ as any, true, false) as any;
       return {
         cat: "<invalid_token>",
         style: "error",
         text: consumed[0],
-        start: stream.start
+        start: stream.start,
+        quotePos: null
       };
     }
 
     function recordFailurePos() {
       // tokenOb.style= "sp-invalid";
-      var col = stream.column();
+      const col = stream.column();
       state.errorStartPos = col;
       state.errorEndPos = col + tokenOb.text.length;
     }
-    function setQueryType(s) {
+    function setQueryType(s:string) {
       if (state.queryType == null) {
-        if (
-          s == "SELECT" ||
-          s == "CONSTRUCT" ||
-          s == "ASK" ||
-          s == "DESCRIBE" ||
-          s == "INSERT" ||
-          s == "DELETE" ||
-          s == "LOAD" ||
-          s == "CLEAR" ||
-          s == "CREATE" ||
-          s == "DROP" ||
-          s == "COPY" ||
-          s == "MOVE" ||
-          s == "ADD"
-        )
-          state.queryType = s;
+        switch(s) {
+          case 'SELECT':
+          case "CONSTRUCT":
+          case "ASK":
+          case "DESCRIBE":
+          case "INSERT":
+          case "DELETE":
+          case "LOAD":
+          case "CLEAR":
+          case "CREATE":
+          case "DROP":
+          case "COPY":
+          case "MOVE":
+          case "ADD":
+            state.queryType = s;
       }
     }
+  }
 
     // Some fake non-terminals are just there to have side-effect on state
     // - i.e. allow or disallow variables and bnodes in certain non-nesting
     // contexts
-    function setSideConditions(topSymbol) {
+    function setSideConditions(topSymbol:string) {
       if (topSymbol === "prefixDecl") {
         state.inPrefixDecl = true;
       } else {
@@ -440,12 +463,14 @@ CodeMirror.defineMode("sparql11", function(config, parserConfig) {
       }
     }
 
-    function checkSideConditions(topSymbol) {
-      return (state.allowVars || topSymbol != "var") &&
+    function checkSideConditions(topSymbol:string) {
+      return (
+        (state.allowVars || topSymbol != "var") &&
         (state.allowBnodes ||
           (topSymbol != "blankNode" &&
             topSymbol != "blankNodePropertyList" &&
-            topSymbol != "blankNodePropertyListPath"));
+            topSymbol != "blankNodePropertyListPath"))
+      );
     }
 
     // CodeMirror works with one line at a time,
@@ -453,7 +478,7 @@ CodeMirror.defineMode("sparql11", function(config, parserConfig) {
     // - i.e. a definite break between tokens (for autocompleter)
     if (stream.pos == 0) state.possibleCurrent = state.possibleNext;
 
-    var tokenOb = nextToken();
+    const tokenOb = nextToken();
 
     if (tokenOb.cat == "<invalid_token>") {
       // set error state, and
@@ -474,16 +499,16 @@ CodeMirror.defineMode("sparql11", function(config, parserConfig) {
     // or failure
     var finished = false;
     var topSymbol;
-    var token = tokenOb.cat;
+    const tokenCat = tokenOb.cat;
 
     if (!tokenOb.quotePos || tokenOb.quotePos == "end") {
       // Incremental LL1 parse
-      while (state.stack.length > 0 && token && state.OK && !finished) {
+      while (state.stack.length > 0 && tokenCat && state.OK && !finished) {
         topSymbol = state.stack.pop();
-        if (topSymbol === 'var' && tokenOb.text) state.variables[tokenOb.text] = tokenOb.text;
+        if (topSymbol === "var" && tokenOb.text) state.variables[tokenOb.text] = tokenOb.text;
         if (!ll1_table[topSymbol]) {
           // Top symbol is a terminal
-          if (topSymbol == token) {
+          if (topSymbol == tokenCat) {
             if (state.inPrefixDecl) {
               if (topSymbol === "PNAME_NS" && tokenOb.text.length > 0) {
                 state.currentPnameNs = tokenOb.text.slice(0, -1);
@@ -501,20 +526,20 @@ CodeMirror.defineMode("sparql11", function(config, parserConfig) {
             // for everything on stack
             var allNillable = true;
             for (var sp = state.stack.length; sp > 0; --sp) {
-              var item = ll1_table[state.stack[sp - 1]];
+              const item = ll1_table[state.stack[sp - 1]];
               if (!item || !item["$"]) allNillable = false;
             }
             state.complete = allNillable;
-            if (state.storeProperty && token.cat != "punc") {
+            if (state.storeProperty && tokenCat != "punc") {
               state.lastProperty = tokenOb.text;
               state.storeProperty = false;
             }
 
             //check whether a used prefix is actually defined
-            if (!state.inPrefixDecl && (token === "PNAME_NS" || token === "PNAME_LN")) {
-              var colonIndex = tokenOb.text.indexOf(":");
+            if (!state.inPrefixDecl && (tokenCat === "PNAME_NS" || tokenCat === "PNAME_LN")) {
+              const colonIndex = tokenOb.text.indexOf(":");
               if (colonIndex >= 0) {
-                var prefNs = tokenOb.text.slice(0, colonIndex);
+                const prefNs = tokenOb.text.slice(0, colonIndex);
                 //avoid warnings for missing bif prefixes (yuck, virtuoso-specific)
                 if (!state.prefixes[prefNs] && ["bif", "xsd", "sql"].indexOf(prefNs) < 0) {
                   state.OK = false;
@@ -532,7 +557,7 @@ CodeMirror.defineMode("sparql11", function(config, parserConfig) {
           // topSymbol is nonterminal
           // - see if there is an entry for topSymbol
           // and nextToken in table
-          var nextSymbols = ll1_table[topSymbol][token];
+          const nextSymbols = ll1_table[topSymbol][tokenCat];
           if (nextSymbols != undefined && checkSideConditions(topSymbol)) {
             // Match - copy RHS of rule to stack
             for (var i = nextSymbols.length - 1; i >= 0; --i) {
@@ -566,7 +591,7 @@ CodeMirror.defineMode("sparql11", function(config, parserConfig) {
     return tokenOb.style;
   }
 
-  var indentTop = {
+  const indentTop:{[symbol:string]:number} = {
     "*[,, object]": 3,
     "*[(,),object]": 3,
     "*[(,),objectPath]": 3,
@@ -586,7 +611,7 @@ CodeMirror.defineMode("sparql11", function(config, parserConfig) {
     //		"?[or([verbPath, verbSimple]),objectList]": 1,
   };
 
-  var indentTable = {
+  const indentTable:{[char:string]:number} = {
     "}": 1,
     "]": 1,
     ")": 1,
@@ -596,7 +621,7 @@ CodeMirror.defineMode("sparql11", function(config, parserConfig) {
     //		"*[;,?[or([verbPath,verbSimple]),objectList]]": 1,
   };
 
-  function indent(state, textAfter) {
+  function indent(state: State, textAfter:string) {
     //just avoid we don't indent multi-line  literals
     if (state.inLiteral) return 0;
     if (state.stack.length && state.stack[state.stack.length - 1] == "?[or([verbPath,verbSimple]),objectList]") {
@@ -607,7 +632,7 @@ CodeMirror.defineMode("sparql11", function(config, parserConfig) {
       var i = state.stack.length - 1;
       if (/^[\}\]\)]/.test(textAfter)) {
         // Skip stack items until after matching bracket
-        var closeBracket = textAfter.substr(0, 1);
+        const closeBracket = textAfter.substr(0, 1);
         for (; i >= 0; --i) {
           if (state.stack[i] == closeBracket) {
             --i;
@@ -616,14 +641,14 @@ CodeMirror.defineMode("sparql11", function(config, parserConfig) {
         }
       } else {
         // Consider nullable non-terminals if at top of stack
-        var dn = indentTop[state.stack[i]];
+        let dn = indentTop[state.stack[i]];
         if (dn) {
           n += dn;
           --i;
         }
       }
       for (; i >= 0; --i) {
-        var dn = indentTable[state.stack[i]];
+        let dn = indentTable[state.stack[i]];
         if (dn) {
           n += dn;
         }
@@ -634,7 +659,8 @@ CodeMirror.defineMode("sparql11", function(config, parserConfig) {
 
   return {
     token: tokenBase,
-    startState: function(base) {
+    startState: function(): State {
+      console.log('GET START STATE')
       return {
         tokenize: tokenBase,
         OK: true,
@@ -648,15 +674,17 @@ CodeMirror.defineMode("sparql11", function(config, parserConfig) {
         allowBnodes: true,
         storeProperty: false,
         lastProperty: "",
-        inLiteral: false,
+        inLiteral: null,
         stack: [grammar.startSymbol],
         lastPredicateOffset: config.indentUnit,
         prefixes: {},
-        variables: {}
+        variables: {},
+        currentPnameNs: null,
+        errorMsg: undefined,
+        inPrefixDecl: false
       };
     },
     indent: indent,
     electricChars: "}])"
   };
-});
-CodeMirror.defineMIME("application/x-sparql-query", "sparql11");
+};

@@ -4,7 +4,6 @@
  * keys). Either change the default options by setting YASQE.defaults, or by
  * passing your own options as second argument to the YASQE constructor
  */
-// var $ = require("jquery"), YASQE = require("./main.js");
 import * as Yasqe from './'
 export default <Yasqe.Config>{
     mode: "sparql11",

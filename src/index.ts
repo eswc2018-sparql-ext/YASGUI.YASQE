@@ -1,4 +1,3 @@
-console.log('bla7')
 import * as CodeMirror from 'codemirror';
 require("codemirror/addon/fold/foldcode.js");
 require("codemirror/addon/fold/foldgutter.js");
@@ -11,65 +10,13 @@ require("codemirror/addon/runmode/runmode.js");
 require("codemirror/addon/display/fullscreen.js");
 
 require("codemirror/lib/codemirror.css")
+require("./scss/codemirrorMods.scss")
+import sparql11 from '../grammar/tokenizer'
+
 import defaults from './defaults'
 import {merge} from 'lodash'
-namespace Yasqe {
-  export interface Config extends CodeMirror.EditorConfiguration {
-    mode?: "sparql11",
-    collapsePrefixesOnLoad?: boolean,
-    syntaxErrorCheck?: boolean,
-    onQuotaExceeded?: (e:Error) => any
-    /**
-    * Show a button with which users can create a link to this query. Set this value to null to disable this functionality.
-    * By default, this feature is enabled, and the only the query value is appended to the link.
-    * ps. This function should return an object which is parseable by jQuery.param (http://api.jquery.com/jQuery.param/)
-    */
-    createShareLink?: (todo:number) => number
-    createShortLink?: (todo:number) => number
-    consumeShareLink?: (todo:number) => number
-    /**
-    * Change persistency settings for the YASQE query value. Setting the values
-    * to null, will disable persistancy: nothing is stored between browser
-    * sessions Setting the values to a string (or a function which returns a
-    * string), will store the query in localstorage using the specified string.
-    * By default, the ID is dynamically generated using the closest dom ID, to avoid collissions when using multiple YASQE items on one
-    * page
-    */
-    sparql?: {
-      queryName?: (yasqe:Yasqe) => string
-      showQueryButton?: boolean,
-      endpoint?:string
-      requestMethod?: 'POST' | 'GET'
-      acceptHeaderGraph?: string,
-      acceptHeaderSelect?: string,
-      acceptHeaderUpdate?: string,
-      namedGraphs?: string[],
-      defaultGraphs?: string[],
-      args?: string[],
-      headers?: {[key:string]:string}
-      getQueryForAjax?: (todo:number) => number
-      callbacks?: {
-        beforeSend?: (todo:number) => number
-        complete?: (todo:number) => number
-        error?: (todo:number) => number
-        success?: (todo:number) => number
-      }
-    }
-    //Addon specific addon ts defs, or missing props from codemirror conf
-    highlightSelectionMatches?: {showToken?: RegExp, annotateScrollbar?: boolean}
-    tabMode?: string
-    foldGutter?: {
-      rangerFinder?: (todo:number) => number
-    }
-    matchBrackets?: boolean
-  }
 
-  //add missing static functions, added by e.g. addons
-  // declare function runMode(text:string, mode:any, out:any):void
-}
 interface Yasqe extends CodeMirror.Editor {
-  //add missing interface (e.g. from addons)
-  //
 }
 class Yasqe  {
   private rootEl:HTMLDivElement
@@ -81,9 +28,8 @@ class Yasqe  {
     this.rootEl.className = 'yasqe';
     parent.appendChild(this.rootEl)
     this.config = merge({}, Yasqe.defaults, conf);
-
     //inherit codemirror props
-    (<any>Object).assign(this, CodeMirror.prototype, CodeMirror(this.rootEl));
+    (<any>Object).assign(this, CodeMirror.prototype, CodeMirror(this.rootEl, this.config));
 
   }
   getQueryType() {
@@ -113,7 +59,7 @@ class Yasqe  {
   //   });
   // }
   emit(event:string, data?:any) {
-    CodeMirror.signal(this, event, data)
+    Yasqe.signal(this, event, data)
   }
   // yasqe.lastQueryDuration = null;
   // getCompleteToken = function(token, cur) {
@@ -236,4 +182,64 @@ class Yasqe  {
   }
   static defaults:Yasqe.Config = defaults
 }
+namespace Yasqe {
+  //extend some statics
+  export import defineMode = CodeMirror.defineMode
+  export import getMode = CodeMirror.getMode
+  export import signal = CodeMirror.signal
+
+  export interface Config extends CodeMirror.EditorConfiguration {
+    mode?: string,
+    collapsePrefixesOnLoad?: boolean,
+    syntaxErrorCheck?: boolean,
+    onQuotaExceeded?: (e:Error) => any
+    /**
+    * Show a button with which users can create a link to this query. Set this value to null to disable this functionality.
+    * By default, this feature is enabled, and the only the query value is appended to the link.
+    * ps. This function should return an object which is parseable by jQuery.param (http://api.jquery.com/jQuery.param/)
+    */
+    createShareLink?: (todo:number) => number
+    createShortLink?: (todo:number) => number
+    consumeShareLink?: (todo:number) => number
+    /**
+    * Change persistency settings for the YASQE query value. Setting the values
+    * to null, will disable persistancy: nothing is stored between browser
+    * sessions Setting the values to a string (or a function which returns a
+    * string), will store the query in localstorage using the specified string.
+    * By default, the ID is dynamically generated using the closest dom ID, to avoid collissions when using multiple YASQE items on one
+    * page
+    */
+    sparql?: {
+      queryName?: (yasqe:Yasqe) => string
+      showQueryButton?: boolean,
+      endpoint?:string
+      requestMethod?: 'POST' | 'GET'
+      acceptHeaderGraph?: string,
+      acceptHeaderSelect?: string,
+      acceptHeaderUpdate?: string,
+      namedGraphs?: string[],
+      defaultGraphs?: string[],
+      args?: string[],
+      headers?: {[key:string]:string}
+      getQueryForAjax?: (todo:number) => number
+      callbacks?: {
+        beforeSend?: (todo:number) => number
+        complete?: (todo:number) => number
+        error?: (todo:number) => number
+        success?: (todo:number) => number
+      }
+    }
+    //Addon specific addon ts defs, or missing props from codemirror conf
+    highlightSelectionMatches?: {showToken?: RegExp, annotateScrollbar?: boolean}
+    tabMode?: string
+    foldGutter?: {
+      rangerFinder?: (todo:number) => number
+    }
+    matchBrackets?: boolean
+  }
+
+  //add missing static functions, added by e.g. addons
+  // declare function runMode(text:string, mode:any, out:any):void
+}
+Yasqe.defineMode('sparql11', sparql11)
 export = Yasqe

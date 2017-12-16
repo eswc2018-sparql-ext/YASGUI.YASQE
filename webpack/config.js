@@ -53,7 +53,20 @@ const config = {
       },
       {
         test: /\.scss$/,
-        loader: "sass-loader"
+        use: isDev
+          ? [
+              "style-loader",
+              { loader: "css-loader", options: { importLoaders: 2 } },
+              {
+                loader: "postcss-loader",
+                options: { plugins:[scopify('.yasqe')] }
+              },
+              'sass-loader'
+            ]
+          : ExtractTextPlugin.extract({
+              fallback: "style-loader",
+              use: ["css-loader", 'sass-loader']
+            })
       },
       {
         test: /\.css$/,
