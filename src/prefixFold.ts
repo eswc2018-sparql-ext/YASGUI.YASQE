@@ -1,22 +1,23 @@
-var CodeMirror = require("codemirror"), tokenUtils = require("./tokenUtils.js");
-
-("use strict");
+import * as Yasqe from './';
+import * as CodeMirror from 'codemirror'
+import * as TokenUtils from './tokenUtils'
 var lookFor = "PREFIX ";
-module.exports = {
-  findFirstPrefixLine: function(cm) {
-    var lastLine = cm.lastLine();
-    for (var i = 0; i <= lastLine; ++i) {
-      if (findFirstPrefix(cm, i) >= 0) {
-        return i;
-      }
+
+export function findFirstPrefixLine(yasqe:Yasqe) {
+  var lastLine = yasqe.getDoc().lastLine();
+  for (var i = 0; i <= lastLine; ++i) {
+    if (findFirstPrefix(yasqe, i) >= 0) {
+      console.log(i)
+      return i;
     }
   }
-};
+}
 
-function findFirstPrefix(cm, line, ch, lineText) {
-  if (!ch) ch = 0;
-  if (!lineText) lineText = cm.getLine(line);
+export function findFirstPrefix(yasqe:Yasqe, line:number, ch = 0, lineText?:string) {
+  console.log('find first prefix')
+  if (!lineText) lineText = yasqe.getDoc().getLine(line);
   lineText = lineText.toUpperCase();
+  console.log(lineText)
   for (var at = ch, pass = 0; ; ) {
     var found = lineText.indexOf(lookFor, at);
     if (found == -1) {
@@ -27,23 +28,24 @@ function findFirstPrefix(cm, line, ch, lineText) {
       continue;
     }
     if (pass == 1 && found < ch) break;
-    var tokenType = cm.getTokenTypeAt(CodeMirror.Pos(line, found + 1));
+    // console.log(yasqe.getDoc())
+
+    var tokenType = yasqe.getTokenTypeAt(CodeMirror.Pos(line, found + 1));
     if (!/^(comment|string)/.test(tokenType)) return found + 1;
     at = found - 1;
     //Could not find a prefix, no use looping any further. Probably invalid query
     if (at === pass) break;
   }
 }
+export default function(yasqe:Yasqe, start:Yasqe.Position) {
+  var line = start.line, lineText = yasqe.getDoc().getLine(line);
 
-CodeMirror.registerHelper("fold", "prefix", function(cm, start) {
-  var line = start.line, lineText = cm.getLine(line);
-
-  var startCh, tokenType;
+  // var startCh, tokenType;
 
   function hasPreviousPrefix() {
     var hasPreviousPrefix = false;
     for (var i = line - 1; i >= 0; i--) {
-      if (cm.getLine(i).toUpperCase().indexOf(lookFor) >= 0) {
+      if (yasqe.getDoc().getLine(i).toUpperCase().indexOf(lookFor) >= 0) {
         hasPreviousPrefix = true;
         break;
       }
@@ -51,46 +53,32 @@ CodeMirror.registerHelper("fold", "prefix", function(cm, start) {
     return hasPreviousPrefix;
   }
 
-  function findOpening(openCh) {
-    for (var at = start.ch, pass = 0; ; ) {
-      var found = at <= 0 ? -1 : lineText.lastIndexOf(openCh, at - 1);
-      if (found == -1) {
-        if (pass == 1) break;
-        pass = 1;
-        at = lineText.length;
-        continue;
-      }
-      if (pass == 1 && found < start.ch) break;
-      tokenType = cm.getTokenTypeAt(CodeMirror.Pos(line, found + 1));
-      if (!/^(comment|string)/.test(tokenType)) return found + 1;
-      at = found - 1;
-    }
-  }
-  var getLastPrefixPos = function(line, ch) {
-    var prefixKeywordToken = cm.getTokenAt(CodeMirror.Pos(line, ch + 1));
+
+  var getLastPrefixPos = function(line:number, ch:number) {
+    var prefixKeywordToken = yasqe.getTokenAt(CodeMirror.Pos(line, ch + 1));
     if (!prefixKeywordToken || prefixKeywordToken.type != "keyword") return -1;
-    var prefixShortname = tokenUtils.getNextNonWsToken(cm, line, prefixKeywordToken.end + 1);
+    var prefixShortname = TokenUtils.getNextNonWsToken(yasqe, line, prefixKeywordToken.end + 1);
     if (!prefixShortname || prefixShortname.type != "string-2") return -1; //missing prefix keyword shortname
-    var prefixUri = tokenUtils.getNextNonWsToken(cm, line, prefixShortname.end + 1);
+    var prefixUri = TokenUtils.getNextNonWsToken(yasqe, line, prefixShortname.end + 1);
     if (!prefixUri || prefixUri.type != "variable-3") return -1; //missing prefix uri
     return prefixUri.end;
   };
 
   //only use opening prefix declaration
   if (hasPreviousPrefix()) return;
-  var prefixStart = findFirstPrefix(cm, line, start.ch, lineText);
+  var prefixStart = findFirstPrefix(yasqe, line, start.ch, lineText);
 
   if (prefixStart == null) return;
   var stopAt = "{"; //if this char is there, we won't have a chance of finding more prefixes
   var stopAtNextLine = false;
-  var count = 1, lastLine = cm.lastLine(), end, endCh;
+  var lastLine = yasqe.getDoc().lastLine(), endCh;
   var prefixEndChar = getLastPrefixPos(line, prefixStart);
   var prefixEndLine = line;
 
-  outer:
+  // outer:
   for (var i = line; i <= lastLine; ++i) {
     if (stopAtNextLine) break;
-    var text = cm.getLine(i), pos = i == line ? prefixStart + 1 : 0;
+    var text = yasqe.getDoc().getLine(i), pos = i == line ? prefixStart + 1 : 0;
 
     for (;;) {
       if (!stopAtNextLine && text.indexOf(stopAt) >= 0) stopAtNextLine = true;
@@ -113,4 +101,4 @@ CodeMirror.registerHelper("fold", "prefix", function(cm, start) {
     from: CodeMirror.Pos(line, prefixStart + lookFor.length),
     to: CodeMirror.Pos(prefixEndLine, prefixEndChar)
   };
-});
+};

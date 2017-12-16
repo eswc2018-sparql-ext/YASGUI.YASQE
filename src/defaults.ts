@@ -4,17 +4,16 @@
  * keys). Either change the default options by setting YASQE.defaults, or by
  * passing your own options as second argument to the YASQE constructor
  */
-import * as Yasqe from './'
-export default <Yasqe.Config>{
+import * as _Yasqe from "./";
+import * as CodeMirror from 'codemirror'
+//need to pass Yasqe object as argument, as the imported version might not have inherited all (e.g. `fold`) props of Codemirror yet
+export default function get(Yasqe: typeof _Yasqe): _Yasqe.Config {
+  return {
     mode: "sparql11",
-    /**
-  	 * Query string
-  	 */
-    value:
-`PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+    value: `PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
 PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
 SELECT * WHERE {
-    ?sub ?pred ?obj .
+  ?sub ?pred ?obj .
 } LIMIT 10`,
     highlightSelectionMatches: {
       showToken: /\w/
@@ -23,7 +22,7 @@ SELECT * WHERE {
     lineNumbers: true,
     lineWrapping: true,
     foldGutter: {
-      // rangeFinder: new YASQE.fold.combine(YASQE.fold.brace, YASQE.fold.prefix)
+      rangeFinder: new (<any>CodeMirror).fold.combine((<any>CodeMirror).fold.brace, (<any>CodeMirror).fold.prefix)
     },
     collapsePrefixesOnLoad: false,
     gutters: ["gutterErrorBar", "CodeMirror-linenumbers", "CodeMirror-foldgutter"],
@@ -35,11 +34,11 @@ SELECT * WHERE {
       console.warn("Could not store in localstorage. Skipping..", e);
     },
     /**
-  	 * Extra shortcut keys. Check the CodeMirror manual on how to add your own
-  	 *
-  	 * @property extraKeys
-  	 * @type object
-  	 */
+     * Extra shortcut keys. Check the CodeMirror manual on how to add your own
+     *
+     * @property extraKeys
+     * @type object
+     */
     // extraKeys: {
     //   //					"Ctrl-Space" : function(yasqe) {
     //   //						YASQE.autoComplete(yasqe);
@@ -75,7 +74,7 @@ SELECT * WHERE {
     //     if (yasqe.getOption("fullScreen")) yasqe.setOption("fullScreen", false);
     //   }
     // },
-    cursorHeight: 0.9,
+    // cursorHeight: 0.9,
 
     // createShareLink: YASQE.createShareLink,
 
@@ -87,7 +86,7 @@ SELECT * WHERE {
     // },
 
     sparql: {
-      queryName: function(yasqe:Yasqe) {
+      queryName: function(yasqe: _Yasqe) {
         return yasqe.getQueryMode();
       },
       showQueryButton: false,
@@ -104,14 +103,15 @@ SELECT * WHERE {
 
       getQueryForAjax: null,
       /**
-  		 * Set of ajax callbacks
-  		 */
+       * Set of ajax callbacks
+       */
       callbacks: {
         beforeSend: null,
         complete: null,
         error: null,
         success: null
-      },
+      }
     }
-  }
+  };
+}
 // }

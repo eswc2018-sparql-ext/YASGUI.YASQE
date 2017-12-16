@@ -1,4 +1,4 @@
-import * as CodeMirror from 'codemirror';
+import * as CodeMirror from "codemirror";
 require("codemirror/addon/fold/foldcode.js");
 require("codemirror/addon/fold/foldgutter.js");
 require("codemirror/addon/fold/xml-fold.js");
@@ -9,33 +9,40 @@ require("codemirror/addon/edit/matchbrackets.js");
 require("codemirror/addon/runmode/runmode.js");
 require("codemirror/addon/display/fullscreen.js");
 
-require("codemirror/lib/codemirror.css")
-require("./scss/codemirrorMods.scss")
-import sparql11 from '../grammar/tokenizer'
+require("codemirror/lib/codemirror.css");
+require("codemirror/addon/fold/foldgutter.css");
+require("./scss/codemirrorMods.scss");
+import {default as prefixFold,findFirstPrefixLine} from "./prefixFold";
+import * as sparql11Mode from "../grammar/tokenizer";
+CodeMirror.defineMode("sparql11", sparql11Mode.default);
 
-import defaults from './defaults'
-import {merge} from 'lodash'
 
+import { merge } from "lodash";
+// @ts-ignore
+// var Yasqe = CodeMirror
 interface Yasqe extends CodeMirror.Editor {
+  getDoc: () => Yasqe.Doc;
+  getTokenTypeAt: (pos: CodeMirror.Position) => string;
+  foldCode: any
 }
-class Yasqe  {
-  private rootEl:HTMLDivElement
-  public config:Yasqe.Config
+// var Yasqe = CodeMirror
+class Yasqe {
+  private rootEl: HTMLDivElement;
+  public config: Yasqe.Config;
   constructor(parent: HTMLElement, conf: Yasqe.Config = {}) {
     // super();
-    if (!parent) throw new Error('No parent passed as argument. Dont know where to draw YASQE');
-    this.rootEl = document.createElement('div');
-    this.rootEl.className = 'yasqe';
-    parent.appendChild(this.rootEl)
+    if (!parent) throw new Error("No parent passed as argument. Dont know where to draw YASQE");
+    this.rootEl = document.createElement("div");
+    this.rootEl.className = "yasqe";
+    parent.appendChild(this.rootEl);
     this.config = merge({}, Yasqe.defaults, conf);
     //inherit codemirror props
     (<any>Object).assign(this, CodeMirror.prototype, CodeMirror(this.rootEl, this.config));
-
   }
   getQueryType() {
-    return 'TODO'
+    return "TODO";
   }
-  getQueryMode():'update' | 'query' {
+  getQueryMode(): "update" | "query" {
     switch (this.getQueryType()) {
       case "INSERT":
       case "DELETE":
@@ -46,9 +53,9 @@ class Yasqe  {
       case "COPY":
       case "MOVE":
       case "ADD":
-        return 'update';
+        return "update";
       default:
-        return 'query'
+        return "query";
     }
   }
 
@@ -58,8 +65,8 @@ class Yasqe  {
   //     if (root.Autocompleters[name]) yasqe.autocompleters.init(name, root.Autocompleters[name]);
   //   });
   // }
-  emit(event:string, data?:any) {
-    Yasqe.signal(this, event, data)
+  emit(event: string, data?: any) {
+    CodeMirror.signal(this, event, data);
   }
   // yasqe.lastQueryDuration = null;
   // getCompleteToken = function(token, cur) {
@@ -71,14 +78,13 @@ class Yasqe  {
   // yasqe.getNextNonWsToken = function(lineNumber, charNumber) {
   //   return require("./tokenUtils.js").getNextNonWsToken(yasqe, lineNumber, charNumber);
   // };
-  // yasqe.collapsePrefixes = function(collapse) {
-  //   if (collapse === undefined) collapse = true;
-  //   yasqe.foldCode(
-  //     require("./prefixFold.js").findFirstPrefixLine(yasqe),
-  //     root.fold.prefix,
-  //     collapse ? "fold" : "unfold"
-  //   );
-  // };
+  collapsePrefixes(collapse = true) {
+    this.foldCode(
+      findFirstPrefixLine(this),
+      (<any>CodeMirror).fold.prefix,
+      collapse ? "fold" : "unfold"
+    );
+  };
   // yasqe.query = function(callbackOrConfig) {
   //   root.executeQuery(yasqe, callbackOrConfig);
   // };
@@ -163,83 +169,87 @@ class Yasqe  {
   //   return cleanedQuery;
   // };
 
-  setCheckSyntaxErrors(isEnabled:boolean) {
+  setCheckSyntaxErrors(isEnabled: boolean) {
     this.config.syntaxErrorCheck = isEnabled;
     // checkSyntax(this);
-  };
+  }
 
-  enableCompleter(name:string) {
+  enableCompleter(name: string) {
     // addCompleterToSettings(yasqe.options, name);
     // if (root.Autocompleters[name]) yasqe.autocompleters.init(name, root.Autocompleters[name]);
-  };
-  disableCompleter(name:string) {
-    // removeCompleterFromSettings(yasqe.options, name);
-  };
-
-
-  static fromTextArea() {
-    //todo
   }
-  static defaults:Yasqe.Config = defaults
-}
-namespace Yasqe {
-  //extend some statics
-  export import defineMode = CodeMirror.defineMode
-  export import getMode = CodeMirror.getMode
-  export import signal = CodeMirror.signal
+  disableCompleter(name: string) {
+    // removeCompleterFromSettings(yasqe.options, name);
+  }
 
+}
+
+CodeMirror.registerHelper("fold", "prefix", prefixFold);
+import getDefaults from "./defaults";
+namespace Yasqe {
+  export interface Doc extends CodeMirror.Doc {
+
+  }
+  export interface Token extends CodeMirror.Token {
+    state: sparql11Mode.State;
+  }
+  //copy the fold we registered registered
+  // export var fold:any = (<any>CodeMirror).fold
+export var defaults: Yasqe.Config = getDefaults(Yasqe);
+  export type TokenizerState = sparql11Mode.State;
+  export type Position = CodeMirror.Position;
   export interface Config extends CodeMirror.EditorConfiguration {
-    mode?: string,
-    collapsePrefixesOnLoad?: boolean,
-    syntaxErrorCheck?: boolean,
-    onQuotaExceeded?: (e:Error) => any
+    mode?: string;
+    collapsePrefixesOnLoad?: boolean;
+    syntaxErrorCheck?: boolean;
+    onQuotaExceeded?: (e: Error) => any;
     /**
-    * Show a button with which users can create a link to this query. Set this value to null to disable this functionality.
-    * By default, this feature is enabled, and the only the query value is appended to the link.
-    * ps. This function should return an object which is parseable by jQuery.param (http://api.jquery.com/jQuery.param/)
-    */
-    createShareLink?: (todo:number) => number
-    createShortLink?: (todo:number) => number
-    consumeShareLink?: (todo:number) => number
+     * Show a button with which users can create a link to this query. Set this value to null to disable this functionality.
+     * By default, this feature is enabled, and the only the query value is appended to the link.
+     * ps. This function should return an object which is parseable by jQuery.param (http://api.jquery.com/jQuery.param/)
+     */
+    createShareLink?: (todo: number) => number;
+    createShortLink?: (todo: number) => number;
+    consumeShareLink?: (todo: number) => number;
     /**
-    * Change persistency settings for the YASQE query value. Setting the values
-    * to null, will disable persistancy: nothing is stored between browser
-    * sessions Setting the values to a string (or a function which returns a
-    * string), will store the query in localstorage using the specified string.
-    * By default, the ID is dynamically generated using the closest dom ID, to avoid collissions when using multiple YASQE items on one
-    * page
-    */
+     * Change persistency settings for the YASQE query value. Setting the values
+     * to null, will disable persistancy: nothing is stored between browser
+     * sessions Setting the values to a string (or a function which returns a
+     * string), will store the query in localstorage using the specified string.
+     * By default, the ID is dynamically generated using the closest dom ID, to avoid collissions when using multiple YASQE items on one
+     * page
+     */
     sparql?: {
-      queryName?: (yasqe:Yasqe) => string
-      showQueryButton?: boolean,
-      endpoint?:string
-      requestMethod?: 'POST' | 'GET'
-      acceptHeaderGraph?: string,
-      acceptHeaderSelect?: string,
-      acceptHeaderUpdate?: string,
-      namedGraphs?: string[],
-      defaultGraphs?: string[],
-      args?: string[],
-      headers?: {[key:string]:string}
-      getQueryForAjax?: (todo:number) => number
+      queryName?: (yasqe: Yasqe) => string;
+      showQueryButton?: boolean;
+      endpoint?: string;
+      requestMethod?: "POST" | "GET";
+      acceptHeaderGraph?: string;
+      acceptHeaderSelect?: string;
+      acceptHeaderUpdate?: string;
+      namedGraphs?: string[];
+      defaultGraphs?: string[];
+      args?: string[];
+      headers?: { [key: string]: string };
+      getQueryForAjax?: (todo: number) => number;
       callbacks?: {
-        beforeSend?: (todo:number) => number
-        complete?: (todo:number) => number
-        error?: (todo:number) => number
-        success?: (todo:number) => number
-      }
-    }
+        beforeSend?: (todo: number) => number;
+        complete?: (todo: number) => number;
+        error?: (todo: number) => number;
+        success?: (todo: number) => number;
+      };
+    };
     //Addon specific addon ts defs, or missing props from codemirror conf
-    highlightSelectionMatches?: {showToken?: RegExp, annotateScrollbar?: boolean}
-    tabMode?: string
+    highlightSelectionMatches?: { showToken?: RegExp; annotateScrollbar?: boolean };
+    tabMode?: string;
     foldGutter?: {
-      rangerFinder?: (todo:number) => number
-    }
-    matchBrackets?: boolean
+      rangeFinder?: any;
+    };
+    matchBrackets?: boolean;
   }
 
   //add missing static functions, added by e.g. addons
   // declare function runMode(text:string, mode:any, out:any):void
 }
-Yasqe.defineMode('sparql11', sparql11)
-export = Yasqe
+
+export = Yasqe;

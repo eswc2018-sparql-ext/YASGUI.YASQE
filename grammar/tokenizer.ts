@@ -38,7 +38,7 @@ export interface Token {
   quotePos: 'end' | 'start' | 'content',
   cat: string,
   style: string
-  text: string,
+  string: string,
   start: number
 }
 export default function(config:CodeMirror.EditorConfiguration, parserConfig: any):CodeMirror.Mode<State> {
@@ -329,7 +329,7 @@ export default function(config:CodeMirror.EditorConfiguration, parserConfig: any
             quotePos: closingQuotes ? "end" : "content",
             cat: STRING_LITERAL_LONG[state.inLiteral].CAT,
             style: stringLiteralLongRegex[state.inLiteral].complete.style,
-            text: consumed[0],
+            string: consumed[0],
             start: stream.start
           };
           if (closingQuotes) state.inLiteral = null;
@@ -353,7 +353,7 @@ export default function(config:CodeMirror.EditorConfiguration, parserConfig: any
           return {
             cat: STRING_LITERAL_LONG[quoteType].CAT,
             style: stringLiteralLongRegex[quoteType].quotes.style,
-            text: consumed[0],
+            string: consumed[0],
             quotePos: quotePos,
             start: stream.start
           };
@@ -367,7 +367,7 @@ export default function(config:CodeMirror.EditorConfiguration, parserConfig: any
           return {
             cat: terminals[i].name,
             style: terminals[i].style,
-            text: consumed[0],
+            string: consumed[0],
             start: stream.start,
             quotePos: null
           };
@@ -380,7 +380,7 @@ export default function(config:CodeMirror.EditorConfiguration, parserConfig: any
         return {
           cat: stream.current().toUpperCase(),
           style: "keyword",
-          text: consumed[0],
+          string: consumed[0],
           start: stream.start,
           quotePos: null
         };
@@ -391,7 +391,7 @@ export default function(config:CodeMirror.EditorConfiguration, parserConfig: any
         return {
           cat: stream.current(),
           style: "punc",
-          text: consumed[0],
+          string: consumed[0],
           start: stream.start,
           quotePos: null
         };
@@ -402,7 +402,7 @@ export default function(config:CodeMirror.EditorConfiguration, parserConfig: any
       return {
         cat: "<invalid_token>",
         style: "error",
-        text: consumed[0],
+        string: consumed[0],
         start: stream.start,
         quotePos: null
       };
@@ -412,7 +412,7 @@ export default function(config:CodeMirror.EditorConfiguration, parserConfig: any
       // tokenOb.style= "sp-invalid";
       const col = stream.column();
       state.errorStartPos = col;
-      state.errorEndPos = col + tokenOb.text.length;
+      state.errorEndPos = col + tokenOb.string.length;
     }
     function setQueryType(s:string) {
       if (state.queryType == null) {
@@ -505,15 +505,15 @@ export default function(config:CodeMirror.EditorConfiguration, parserConfig: any
       // Incremental LL1 parse
       while (state.stack.length > 0 && tokenCat && state.OK && !finished) {
         topSymbol = state.stack.pop();
-        if (topSymbol === "var" && tokenOb.text) state.variables[tokenOb.text] = tokenOb.text;
+        if (topSymbol === "var" && tokenOb.string) state.variables[tokenOb.string] = tokenOb.string;
         if (!ll1_table[topSymbol]) {
           // Top symbol is a terminal
           if (topSymbol == tokenCat) {
             if (state.inPrefixDecl) {
-              if (topSymbol === "PNAME_NS" && tokenOb.text.length > 0) {
-                state.currentPnameNs = tokenOb.text.slice(0, -1);
-              } else if (state.currentPnameNs !== undefined && tokenOb.text.length > 2) {
-                state.prefixes[state.currentPnameNs] = tokenOb.text.slice(1, -1);
+              if (topSymbol === "PNAME_NS" && tokenOb.string.length > 0) {
+                state.currentPnameNs = tokenOb.string.slice(0, -1);
+              } else if (state.currentPnameNs !== undefined && tokenOb.string.length > 2) {
+                state.prefixes[state.currentPnameNs] = tokenOb.string.slice(1, -1);
                 //reset current pname ns
                 state.currentPnameNs = undefined;
               }
@@ -531,15 +531,15 @@ export default function(config:CodeMirror.EditorConfiguration, parserConfig: any
             }
             state.complete = allNillable;
             if (state.storeProperty && tokenCat != "punc") {
-              state.lastProperty = tokenOb.text;
+              state.lastProperty = tokenOb.string;
               state.storeProperty = false;
             }
 
             //check whether a used prefix is actually defined
             if (!state.inPrefixDecl && (tokenCat === "PNAME_NS" || tokenCat === "PNAME_LN")) {
-              const colonIndex = tokenOb.text.indexOf(":");
+              const colonIndex = tokenOb.string.indexOf(":");
               if (colonIndex >= 0) {
-                const prefNs = tokenOb.text.slice(0, colonIndex);
+                const prefNs = tokenOb.string.slice(0, colonIndex);
                 //avoid warnings for missing bif prefixes (yuck, virtuoso-specific)
                 if (!state.prefixes[prefNs] && ["bif", "xsd", "sql"].indexOf(prefNs) < 0) {
                   state.OK = false;
@@ -660,7 +660,6 @@ export default function(config:CodeMirror.EditorConfiguration, parserConfig: any
   return {
     token: tokenBase,
     startState: function(): State {
-      console.log('GET START STATE')
       return {
         tokenize: tokenBase,
         OK: true,

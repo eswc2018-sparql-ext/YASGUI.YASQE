@@ -1,19 +1,15 @@
-"use strict";
+import * as Yasqe from './';
+
 /**
  * When typing a query, this query is sometimes syntactically invalid, causing
  * the current tokens to be incorrect This causes problem for autocompletion.
  * http://bla might result in two tokens: http:// and bla. We'll want to combine
  * these
- * 
- * @param yasqe {doc}
- * @param token {object}
- * @param cursor {object}
- * @return token {object}
- * @method YASQE.getCompleteToken
  */
-var getCompleteToken = function(yasqe, token, cur) {
+
+export function getCompleteToken(yasqe:Yasqe, token:Yasqe.Token, cur: Yasqe.Position):Yasqe.Token {
   if (!cur) {
-    cur = yasqe.getCursor();
+    cur = yasqe.getDoc().getCursor();
   }
   if (!token) {
     token = yasqe.getTokenAt(cur);
@@ -39,7 +35,7 @@ var getCompleteToken = function(yasqe, token, cur) {
     return token;
   }
 };
-var getPreviousNonWsToken = function(yasqe, line, token) {
+export function getPreviousNonWsToken(yasqe: Yasqe, line:number, token:Yasqe.Token):Yasqe.Token {
   var previousToken = yasqe.getTokenAt({
     line: line,
     ch: token.start
@@ -49,7 +45,7 @@ var getPreviousNonWsToken = function(yasqe, line, token) {
   }
   return previousToken;
 };
-var getNextNonWsToken = function(yasqe, lineNumber, charNumber) {
+export function getNextNonWsToken(yasqe:Yasqe, lineNumber:number, charNumber:number):Yasqe.Token {
   if (charNumber == undefined) charNumber = 1;
   var token = yasqe.getTokenAt({
     line: lineNumber,
@@ -62,10 +58,4 @@ var getNextNonWsToken = function(yasqe, lineNumber, charNumber) {
     return getNextNonWsToken(yasqe, lineNumber, token.end + 1);
   }
   return token;
-};
-
-module.exports = {
-  getPreviousNonWsToken: getPreviousNonWsToken,
-  getCompleteToken: getCompleteToken,
-  getNextNonWsToken: getNextNonWsToken
 };
