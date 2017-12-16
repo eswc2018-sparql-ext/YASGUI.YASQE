@@ -13,6 +13,8 @@ require("codemirror/lib/codemirror.css");
 require("codemirror/addon/fold/foldgutter.css");
 require("./scss/codemirrorMods.scss");
 import {default as prefixFold,findFirstPrefixLine} from "./prefixFold";
+import {getPrefixesFromQuery} from "./prefixUtils";
+import {getPreviousNonWsToken,getNextNonWsToken,getCompleteToken} from './tokenUtils'
 import * as sparql11Mode from "../grammar/tokenizer";
 CodeMirror.defineMode("sparql11", sparql11Mode.default);
 
@@ -69,15 +71,15 @@ class Yasqe {
     CodeMirror.signal(this, event, data);
   }
   // yasqe.lastQueryDuration = null;
-  // getCompleteToken = function(token, cur) {
-  //   return require("./tokenUtils.js").getCompleteToken(yasqe, token, cur);
-  // };
-  // yasqe.getPreviousNonWsToken = function(line, token) {
-  //   return require("./tokenUtils.js").getPreviousNonWsToken(yasqe, line, token);
-  // };
-  // yasqe.getNextNonWsToken = function(lineNumber, charNumber) {
-  //   return require("./tokenUtils.js").getNextNonWsToken(yasqe, lineNumber, charNumber);
-  // };
+  getCompleteToken(token:Yasqe.Token, cur:Yasqe.Position) {
+    return getCompleteToken(this, token, cur);
+  };
+  getPreviousNonWsToken(line:number, token:Yasqe.Token) {
+    return getPreviousNonWsToken(this, line, token);
+  };
+  getNextNonWsToken(lineNumber:number, charNumber?:number) {
+    return getNextNonWsToken(this, lineNumber, charNumber);
+  };
   collapsePrefixes(collapse = true) {
     this.foldCode(
       findFirstPrefixLine(this),
@@ -93,9 +95,9 @@ class Yasqe {
   //   return root.getUrlArguments(yasqe, config);
   // };
 
-  // yasqe.getPrefixesFromQuery = function() {
-  //   return require("./prefixUtils.js").getPrefixesFromQuery(yasqe);
-  // };
+  getPrefixesFromQuery() {
+    return getPrefixesFromQuery(this);
+  };
 
   // yasqe.addPrefixes = function(prefixes) {
   //   return require("./prefixUtils.js").addPrefixes(yasqe, prefixes);

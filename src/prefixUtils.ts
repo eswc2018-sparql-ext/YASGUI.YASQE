@@ -1,11 +1,6 @@
-"use strict";
-/**
- * Append prefix declaration to list of prefixes in query window.
- *
- * @param yasqe
- * @param prefix
- */
-var addPrefixes = function(yasqe, prefixes) {
+import * as Yasqe from './'
+export type Prefixes = {[prefLabel:string]:string};
+export function addPrefixes(yasqe:Yasqe, prefixes:string |Prefixes) {
   var existingPrefixes = yasqe.getPrefixesFromQuery();
   //for backwards compatability, we stil support prefixes value as string (e.g. 'rdf: <http://fbfgfgf>'
   if (typeof prefixes == "string") {
@@ -18,10 +13,10 @@ var addPrefixes = function(yasqe, prefixes) {
   yasqe.collapsePrefixes(false);
 };
 
-var addPrefixAsString = function(yasqe, prefixString) {
+export function addPrefixAsString(yasqe:Yasqe, prefixString:string) {
   var lastPrefix = null;
   var lastPrefixLine = 0;
-  var numLines = yasqe.lineCount();
+  var numLines = yasqe.getDoc().lineCount();
   for (var i = 0; i < numLines; i++) {
     var firstToken = yasqe.getNextNonWsToken(i);
     if (firstToken != null && (firstToken.string == "PREFIX" || firstToken.string == "BASE")) {
@@ -31,20 +26,21 @@ var addPrefixAsString = function(yasqe, prefixString) {
   }
 
   if (lastPrefix == null) {
-    yasqe.replaceRange("PREFIX " + prefixString + "\n", {
+    yasqe.getDoc().replaceRange("PREFIX " + prefixString + "\n", {
       line: 0,
       ch: 0
     });
   } else {
     var previousIndent = getIndentFromLine(yasqe, lastPrefixLine);
-    yasqe.replaceRange("\n" + previousIndent + "PREFIX " + prefixString, {
-      line: lastPrefixLine
+    yasqe.getDoc().replaceRange("\n" + previousIndent + "PREFIX " + prefixString, {
+      line: lastPrefixLine,
+      ch: 0
     });
   }
   yasqe.collapsePrefixes(false);
 };
-var removePrefixes = function(yasqe, prefixes) {
-  var escapeRegex = function(string) {
+export function removePrefixes(yasqe:Yasqe, prefixes:Prefixes) {
+  var escapeRegex = function(string:string) {
     //taken from http://stackoverflow.com/questions/3561493/is-there-a-regexp-escape-function-in-javascript/3561711#3561711
     return string.replace(/[-\/\\^$*+?.()|[\]{}]/g, "\\$&");
   };
@@ -64,23 +60,14 @@ var removePrefixes = function(yasqe, prefixes) {
  * @param cm
  * @returns {Array}
  */
-var getPrefixesFromQuery = function(yasqe) {
+export function getPrefixesFromQuery(yasqe:Yasqe) {
   //Use precise here. We want to be sure we use the most up to date state. If we're
   //not, we might get outdated prefixes from the current query (creating loops such
   //as https://github.com/OpenTriply/YASGUI/issues/84)
-  return yasqe.getTokenAt({ line: yasqe.lastLine(), ch: yasqe.getLine(yasqe.lastLine()).length }, true).state.prefixes;
+  return yasqe.getTokenAt({ line: yasqe.getDoc().lastLine(), ch: yasqe.getDoc().getLine(yasqe.getDoc().lastLine()).length }, true).state.prefixes;
 };
 
-/**
- * Get the used indentation for a certain line
- *
- * @param yasqe
- * @param line
- * @param charNumber
- * @returns
- */
-var getIndentFromLine = function(yasqe, line, charNumber) {
-  if (charNumber == undefined) charNumber = 1;
+export function getIndentFromLine(yasqe:Yasqe, line:number, charNumber:number = 1):string {
   var token = yasqe.getTokenAt({
     line: line,
     ch: charNumber
