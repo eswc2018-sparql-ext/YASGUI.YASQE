@@ -69,6 +69,7 @@ $queryButtonHeight: 40px;
     height: 20px;
     width: 20px;
     margin-top: 3px;
+    display:inline-block;
   }
   div {
     vertical-align: top;
@@ -116,6 +117,10 @@ $queryButtonHeight: 40px;
     height: $queryButtonHeight;
     div {
       margin-left: 0px;
+    }
+    svg {
+      width: $queryButtonWidth;
+      height: $queryButtonHeight;
     }
     margin-left: 10px;
     .svgImg {

@@ -104,7 +104,7 @@ SELECT * WHERE {
       queryName: function(yasqe: _Yasqe) {
         return yasqe.getQueryMode();
       },
-      showQueryButton: false,
+      showQueryButton: true,
 
       endpoint: "http://dbpedia.org/sparql",
       requestMethod: "POST",

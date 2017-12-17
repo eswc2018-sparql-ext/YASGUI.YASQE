@@ -11,6 +11,7 @@ require("codemirror/addon/display/fullscreen.js");
 
 require("codemirror/lib/codemirror.css");
 require("codemirror/addon/fold/foldgutter.css");
+require("codemirror/addon/display/fullscreen.css");
 require("./scss/codemirrorMods.scss");
 require("./scss/buttons.scss");
 
@@ -34,6 +35,9 @@ interface Yasqe extends CodeMirror.Editor {
 // var Yasqe = CodeMirror
 class Yasqe {
   private static storageNamespace = "triply";
+  public queryValid = true;
+  private queryStatus: "valid" | "error" | "busy";
+  private queryBtn: HTMLDivElement;
   public rootEl: HTMLDivElement;
   private storage: YStorage;
   public config: Yasqe.Config;
@@ -201,9 +205,8 @@ class Yasqe {
      */
     if (this.config.createShareLink) {
       var svgShare = drawSvgStringAsElement(imgs.share);
-      console.log(svgShare)
-      svgShare.className = 'yasqe_share';
-      svgShare.title = 'Share your query';
+      svgShare.className = "yasqe_share";
+      svgShare.title = "Share your query";
       buttons.appendChild(svgShare);
       svgShare.onclick = (event: MouseEvent) => {
         event.stopPropagation();
@@ -224,10 +227,15 @@ class Yasqe {
           true
         );
         var input = document.createElement("input");
-        input.type = 'text'
-        input.value = 'BLAAA'
-        // input.value = document.location.protocol + "//" + document.location.host + document.location.pathname + document.location.search + "#";
-
+        input.type = "text";
+        input.value =
+          document.location.protocol +
+          "//" +
+          document.location.host +
+          document.location.pathname +
+          document.location.search +
+          "#";
+        console.log("TODO: create actual share link");
         // $.param(yasqe.options.createShareLink(yasqe))
 
         input.onfocus = function() {
@@ -238,7 +246,7 @@ class Yasqe {
           // $this.unbind("mouseup");
           return false;
         };
-        // popup.innerHTML = "";
+        popup.innerHTML = "";
 
         var inputWrapper = document.createElement("div");
         inputWrapper.className = "inputWrapper";
@@ -281,17 +289,87 @@ class Yasqe {
         };
 
         const svgPos = svgShare.getBoundingClientRect();
-        console.log({svgPos});
-        console.log(svgShare.offsetTop, svgShare.offsetLeft)
-        // popup
-        //   .css("top", positions.top + svgShare.outerHeight() + parseInt(popup.css("padding-top")) + "px")
-        //   .css("left", positions.left + svgShare.outerWidth() - popup.outerWidth() + "px");
-        popup.style.top = svgShare.offsetTop + svgPos.height + 'px';
-        popup.style.left = svgShare.offsetLeft + svgShare.clientWidth - popup.clientWidth + 'px';
+        popup.style.top = svgShare.offsetTop + svgPos.height + "px";
+        popup.style.left = svgShare.offsetLeft + svgShare.clientWidth - popup.clientWidth + "px";
         input.focus();
       };
     }
 
+    /**
+     * draw fullscreen button
+     */
+    const toggleFullscreen = document.createElement("div");
+    toggleFullscreen.className = "fullscreenToggleBtns";
+
+    const toggleFullscreenBtn = drawSvgStringAsElement(imgs.fullscreen);
+    toggleFullscreenBtn.className = "yasqe_fullscreenBtn";
+    toggleFullscreenBtn.title = "Set editor full screen";
+    toggleFullscreenBtn.onclick = () => {
+      this.setOption("fullScreen", true);
+      this.emit("fullscreen-enter");
+    };
+    toggleFullscreen.appendChild(toggleFullscreenBtn);
+
+    const toggleSmallScreenBtn = drawSvgStringAsElement(imgs.smallscreen);
+    toggleSmallScreenBtn.className = "yasqe_smallscreenBtn";
+    toggleSmallScreenBtn.title = "Set editor normal size";
+    toggleSmallScreenBtn.onclick = () => {
+      this.setOption("fullScreen", false);
+      this.emit("fullscreen-leave");
+    };
+    toggleFullscreen.appendChild(toggleSmallScreenBtn);
+    buttons.appendChild(toggleFullscreen);
+
+    /**
+     * Draw query btn
+     */
+    if (this.config.sparql.showQueryButton) {
+      this.queryBtn = document.createElement("div");
+      this.queryBtn.className = "yasqe_queryButton";
+      this.queryBtn.onclick = () => {
+        console.warn("TODO: check whether query is busy, and abort request");
+        const isBusy = false;
+        console.warn("TODO: implement query func");
+        if (isBusy) {
+          //abort
+          this.updateQueryButton();
+        }
+        // this.query();
+      };
+      buttons.appendChild(this.queryBtn);
+      this.updateQueryButton();
+    }
+  }
+  updateQueryButton(status?: "valid" | "error" | "busy") {
+    if (!this.queryBtn) return;
+
+    //detect status
+    if (!status) {
+      status = this.queryValid ? "valid" : "error";
+    }
+
+    if (status != this.queryStatus) {
+      this.queryBtn.innerHTML = "";
+      //reset query status classnames
+      this.queryBtn.className = this.queryBtn.className
+        .split(" ")
+        .filter(function(c) {
+          //remove classname from previous status
+          return c.indexOf("query_") !== 0;
+        })
+        .join(" ");
+
+      if (status == "busy") {
+        const loaderDiv = document.createElement("div");
+        loaderDiv.className = "loader";
+        this.queryBtn.appendChild(loaderDiv);
+      } else if (status == "valid" || status == "error") {
+        this.queryBtn.className = this.queryBtn.className + " query_" + status;
+        const svgEl = drawSvgStringAsElement(status === "valid" ? imgs.query : imgs.queryInvalid);
+        this.queryBtn.appendChild(svgEl);
+      }
+      this.queryStatus = status;
+    }
   }
   store() {
     // var storageId = utils.getPersistencyId(yasqe, yasqe.options.persistent);
@@ -330,7 +408,7 @@ namespace Yasqe {
      * By default, this feature is enabled, and the only the query value is appended to the link.
      * ps. This function should return an object which is parseable by jQuery.param (http://api.jquery.com/jQuery.param/)
      */
-    createShareLink?: (yasqe:Yasqe) => string;
+    createShareLink?: (yasqe: Yasqe) => string;
     createShortLink?: (yasqe: Yasqe, longLink: string) => Promise<string>;
     consumeShareLink?: (todo: number) => number;
     /**
