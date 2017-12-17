@@ -36,7 +36,8 @@ interface Yasqe extends CodeMirror.Editor {
 class Yasqe {
   private static storageNamespace = "triply";
   public queryValid = true;
-  private queryStatus: "valid" | "error" | "busy";
+  private isQuerying = false;
+  private queryStatus: "valid" | "error" ;
   private queryBtn: HTMLDivElement;
   public rootEl: HTMLDivElement;
   private storage: YStorage;
@@ -326,6 +327,24 @@ class Yasqe {
     if (this.config.sparql.showQueryButton) {
       this.queryBtn = document.createElement("div");
       this.queryBtn.className = "yasqe_queryButton";
+
+      /**
+       * Add busy/valid/error btns
+       */
+       const queryEl = drawSvgStringAsElement(imgs.query);
+       queryEl.className = queryEl.className + ' queryIcon';
+       this.queryBtn.appendChild(queryEl);
+
+       //todo: add warning icon
+       const warningIcon = drawSvgStringAsElement(imgs.warning);
+       warningIcon.className = warningIcon.className + ' warningIcon';
+       this.queryBtn.appendChild(warningIcon);
+
+       // const loaderEl = drawSvgStringAsElement(imgs.query);
+       // loaderEl.className = loaderEl.className + ' loadingIcon';
+       // this.queryBtn.appendChild(loaderEl);
+
+
       this.queryBtn.onclick = () => {
         console.warn("TODO: check whether query is busy, and abort request");
         const isBusy = false;
@@ -340,16 +359,16 @@ class Yasqe {
       this.updateQueryButton();
     }
   }
-  updateQueryButton(status?: "valid" | "error" | "busy") {
+  updateQueryButton(status?: "valid" | "error") {
     if (!this.queryBtn) return;
 
-    //detect status
+    /**
+     * Set query status (valid vs invalid)
+     */
     if (!status) {
       status = this.queryValid ? "valid" : "error";
     }
-
     if (status != this.queryStatus) {
-      this.queryBtn.innerHTML = "";
       //reset query status classnames
       this.queryBtn.className = this.queryBtn.className
         .split(" ")
@@ -358,18 +377,19 @@ class Yasqe {
           return c.indexOf("query_") !== 0;
         })
         .join(" ");
-
-      if (status == "busy") {
-        const loaderDiv = document.createElement("div");
-        loaderDiv.className = "loader";
-        this.queryBtn.appendChild(loaderDiv);
-      } else if (status == "valid" || status == "error") {
-        this.queryBtn.className = this.queryBtn.className + " query_" + status;
-        const svgEl = drawSvgStringAsElement(status === "valid" ? imgs.query : imgs.queryInvalid);
-        this.queryBtn.appendChild(svgEl);
-      }
+      this.queryBtn.className = this.queryBtn.className + ' query_' + status
       this.queryStatus = status;
     }
+
+    /**
+     * Set/remove spinner if needed
+     */
+   if (this.isQuerying && this.queryBtn.className.indexOf('busy') < 0) {
+     this.queryBtn.className = this.queryBtn.className += ' busy'
+   } else {
+     this.queryBtn.className = this.queryBtn.className.replace('busy', '');
+   }
+
   }
   store() {
     // var storageId = utils.getPersistencyId(yasqe, yasqe.options.persistent);
