@@ -13,6 +13,7 @@ require("codemirror/lib/codemirror.css");
 require("codemirror/addon/fold/foldgutter.css");
 require("codemirror/addon/display/fullscreen.css");
 require("./scss/codemirrorMods.scss");
+require("./scss/yasqe.scss");
 require("./scss/buttons.scss");
 
 import { default as prefixFold, findFirstPrefixLine } from "./prefixFold";
@@ -35,7 +36,9 @@ interface Yasqe extends CodeMirror.Editor {
 // var Yasqe = CodeMirror
 class Yasqe {
   private static storageNamespace = "triply";
+  private prevQueryValid = false;
   public queryValid = true;
+  public queryType:Yasqe.TokenizerState['queryType']
   private isQuerying = false;
   private queryStatus: "valid" | "error" ;
   private queryBtn: HTMLDivElement;
@@ -53,6 +56,17 @@ class Yasqe {
     (<any>Object).assign(this, CodeMirror.prototype, CodeMirror(this.rootEl, this.config));
     this.storage = new YStorage(Yasqe.storageNamespace);
     this.drawButtons();
+    this.on("change", (eventInfo)=> {
+      this.checkSyntax();
+      this.updateQueryButton();
+      // root.positionButtons(yasqe);
+    });
+    this.on("changes", () => {
+      //e.g. on paste
+      this.checkSyntax();
+      this.updateQueryButton();
+      // root.positionButtons(yasqe);
+    });
   }
   getQueryType() {
     return "TODO";
@@ -184,7 +198,71 @@ class Yasqe {
     this.config.syntaxErrorCheck = isEnabled;
     // checkSyntax(this);
   }
+  checkSyntax() {
+    this.queryValid = true;
 
+    console.log('clear gutter')
+    this.clearGutter("gutterErrorBar");
+
+    var state:Yasqe.TokenizerState = null;
+    for (var l = 0; l < this.getDoc().lineCount(); ++l) {
+      var precise = false;
+      if (!this.prevQueryValid) {
+        // we don't want cached information in this case, otherwise the
+        // previous error sign might still show up,
+        // even though the syntax error might be gone already
+        precise = true;
+      }
+
+      var token:Yasqe.Token = this.getTokenAt(
+        {
+          line: l,
+          ch: this.getDoc().getLine(l).length
+        },
+        precise
+      );
+      var state = token.state;
+      this.queryType = state.queryType;
+      if (state.OK == false) {
+        if (!this.config.syntaxErrorCheck) {
+          //the library we use already marks everything as being an error. Overwrite this class attribute.
+          const els = this.getWrapperElement().querySelectorAll('.sp-error')
+          for (let i = 0; i < els.length; i++) {
+            var el:any = els[i];
+            if (el.style) el.style.color = 'black'
+          }
+          //we don't want the gutter error, so return
+          return;
+        }
+        const warningEl = drawSvgStringAsElement(imgs.warning);
+        if (state.errorMsg) {
+          //TODO: render tooltip
+          // require("./tooltip")(yasqe, warningEl, function() {
+          //   return $("<div/>").text(token.state.errorMsg).html();
+          // });
+        } else if (state.possibleCurrent && state.possibleCurrent.length > 0) {
+          //TODO: render tooltip
+          // require("./tooltip")(yasqe, warningEl, function() {
+          //   var expectedEncoded = [];
+          //   state.possibleCurrent.forEach(function(expected) {
+          //     expectedEncoded.push(
+          //       "<strong style='text-decoration:underline'>" + $("<div/>").text(expected).html() + "</strong>"
+          //     );
+          //   });
+          //   return "This line is invalid. Expected: " + expectedEncoded.join(", ");
+          // });
+        }
+        // warningEl.style.marginTop = "2px";
+        // warningEl.style.marginLeft = "2px";
+        warningEl.className = "parseErrorIcon";
+        console.log('set gutter marker',l, warningEl)
+        this.setGutterMarker(l, "gutterErrorBar", warningEl);
+
+        this.queryValid = false;
+        break;
+      }
+    }
+  }
   enableCompleter(name: string) {
     // addCompleterToSettings(yasqe.options, name);
     // if (root.Autocompleters[name]) yasqe.autocompleters.init(name, root.Autocompleters[name]);

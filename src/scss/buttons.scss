@@ -159,7 +159,7 @@ $queryButtonHeight: 40px;
     &.query_error {
       .warningIcon {
         display: block;
-        bottom: 0px;
+        bottom: -5px;
         right: 0px;
         //todo fix this
         // display: none;
