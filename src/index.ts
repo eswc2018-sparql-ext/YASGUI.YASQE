@@ -22,6 +22,7 @@ import { getPreviousNonWsToken, getNextNonWsToken, getCompleteToken } from "./to
 import * as sparql11Mode from "../grammar/tokenizer";
 import YStorage from "yasgui-utils/build/Storage";
 import { drawSvgStringAsElement } from "yasgui-utils/build";
+import * as Sparql from './sparql'
 CodeMirror.defineMode("sparql11", sparql11Mode.default);
 import * as imgs from "./imgs";
 // export var
@@ -38,6 +39,7 @@ class Yasqe {
   private static storageNamespace = "triply";
   private prevQueryValid = false;
   public queryValid = true;
+  public lastQueryDuration:number;
   public queryType:Yasqe.TokenizerState['queryType']
   private isQuerying = false;
   private queryStatus: "valid" | "error" ;
@@ -66,6 +68,15 @@ class Yasqe {
       this.checkSyntax();
       this.updateQueryButton();
       // root.positionButtons(yasqe);
+    });
+    this.on('query', () => {
+      this.isQuerying = true;
+      this.updateQueryButton();
+    });
+    (<any>this).on('queryFinish', (response:any, duration:number) => {
+        this.lastQueryDuration = duration;
+        this.isQuerying = false;
+        this.updateQueryButton();
     });
   }
   getQueryType() {
@@ -97,7 +108,6 @@ class Yasqe {
   emit(event: string, data?: any) {
     CodeMirror.signal(this, event, data);
   }
-  // yasqe.lastQueryDuration = null;
   getCompleteToken(token: Yasqe.Token, cur: Yasqe.Position) {
     return getCompleteToken(this, token, cur);
   }
@@ -110,13 +120,10 @@ class Yasqe {
   collapsePrefixes(collapse = true) {
     this.foldCode(findFirstPrefixLine(this), (<any>CodeMirror).fold.prefix, collapse ? "fold" : "unfold");
   }
-  // yasqe.query = function(callbackOrConfig) {
-  //   root.executeQuery(yasqe, callbackOrConfig);
-  // };
+  query(config?:Sparql.YasqeAjaxConfig) {
+    return Sparql.executeQuery(this, config);
+  }
 
-  // yasqe.getUrlArguments = function(config) {
-  //   return root.getUrlArguments(yasqe, config);
-  // };
 
   getPrefixesFromQuery() {
     return getPrefixesFromQuery(this);
@@ -426,12 +433,11 @@ class Yasqe {
       this.queryBtn.onclick = () => {
         console.warn("TODO: check whether query is busy, and abort request");
         const isBusy = false;
-        console.warn("TODO: implement query func");
         if (isBusy) {
           //abort
           this.updateQueryButton();
         }
-        // this.query();
+        this.query();
       };
       buttons.appendChild(this.queryBtn);
       this.updateQueryButton();
@@ -522,22 +528,17 @@ namespace Yasqe {
     sparql?: {
       queryName?: (yasqe: Yasqe) => string;
       showQueryButton?: boolean;
-      endpoint?: string;
+      endpoint?: string | ((yasqe:Yasqe) => string);
       requestMethod?: "POST" | "GET";
-      acceptHeaderGraph?: string;
-      acceptHeaderSelect?: string;
-      acceptHeaderUpdate?: string;
+      acceptHeaderGraph?: string | ((yasqe:Yasqe) => string);
+      acceptHeaderSelect?: string | ((yasqe:Yasqe) => string);
+      acceptHeaderUpdate?: string | ((yasqe:Yasqe) => string);
       namedGraphs?: string[];
       defaultGraphs?: string[];
       args?: string[];
       headers?: { [key: string]: string };
-      getQueryForAjax?: (todo: number) => number;
-      callbacks?: {
-        beforeSend?: (todo: number) => number;
-        complete?: (todo: number) => number;
-        error?: (todo: number) => number;
-        success?: (todo: number) => number;
-      };
+      getQueryForAjax?: (yasqe:Yasqe) => string;
+      xhrFields?: {[key:string]:any}
     };
     //Addon specific addon ts defs, or missing props from codemirror conf
     highlightSelectionMatches?: { showToken?: RegExp; annotateScrollbar?: boolean };

@@ -101,13 +101,13 @@ SELECT * WHERE {
     persistencyExpire: 60 * 60 * 24 * 30,
 
     sparql: {
-      queryName: function(yasqe: _Yasqe) {
+      queryName: function(yasqe: _Yasqe):string {
         return yasqe.getQueryMode();
       },
       showQueryButton: true,
 
       endpoint: "http://dbpedia.org/sparql",
-      requestMethod: "POST",
+      requestMethod: "GET",
       acceptHeaderGraph: "text/turtle,*/*;q=0.9",
       acceptHeaderSelect: "application/sparql-results+json,*/*;q=0.9",
       acceptHeaderUpdate: "text/plain,*/*;q=0.9",
@@ -117,15 +117,7 @@ SELECT * WHERE {
       headers: {},
 
       getQueryForAjax: null,
-      /**
-       * Set of ajax callbacks
-       */
-      callbacks: {
-        beforeSend: null,
-        complete: null,
-        error: null,
-        success: null
-      }
+
     }
   };
 }
