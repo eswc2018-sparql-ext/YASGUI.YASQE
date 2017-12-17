@@ -48,7 +48,8 @@
     "lodash": "^4.17.4",
     "postcss-loader": "^2.0.9",
     "postcss-scopify": "^0.1.9",
-    "prettier": "^1.4.4"
+    "prettier": "^1.4.4",
+    "yasgui-utils": "^2.0.6"
   },
   "devDependencies": {
     "better-npm-run": "^0.1.0",

@@ -29,10 +29,6 @@ SELECT * WHERE {
     matchBrackets: true,
     fixedGutter: true,
     syntaxErrorCheck: true,
-    onQuotaExceeded: function(e) {
-      //fail silently
-      console.warn("Could not store in localstorage. Skipping..", e);
-    },
     /**
      * Extra shortcut keys. Check the CodeMirror manual on how to add your own
      *
@@ -76,14 +72,33 @@ SELECT * WHERE {
     // },
     // cursorHeight: 0.9,
 
-    // createShareLink: YASQE.createShareLink,
+    createShareLink: function(yasqe:_Yasqe) {
+      // //extend existing link, so first fetch current arguments
+      // var urlParams = {};
+      // if (window.location.hash.length > 1) urlParams = $.deparam(window.location.hash.substring(1));
+      // urlParams["query"] = yasqe.getValue();
+      // return urlParams;
+      return 'TODO: implement createhsarelink func in defaults'
+    },
 
     createShortLink: null,
 
     // consumeShareLink: YASQE.consumeShareLink,
-    // persistent: function(yasqe) {
-    //   return "yasqe_" + $(yasqe.getWrapperElement()).closest("[id]").attr("id") + "_queryVal";
-    // },
+    persistenceId: function(yasqe:_Yasqe) {
+      //Traverse parents untl we've got an id
+        // Get matching parent elements
+      var id = ''
+      var elem = <Node>yasqe.rootEl
+      if ((<any>elem).id) id = (<any>elem).id;
+        for ( ; elem && elem !== <any>document; elem = elem.parentNode ) {
+          if ( parent ) {
+             if ((<any>parent).id) id = (<any>parent).id;
+             break;
+          }
+      }
+      return "yasqe_" + id + "_query";
+    },
+    persistencyExpire: 60 * 60 * 24 * 30,
 
     sparql: {
       queryName: function(yasqe: _Yasqe) {

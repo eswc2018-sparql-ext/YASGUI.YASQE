@@ -12,24 +12,30 @@ require("codemirror/addon/display/fullscreen.js");
 require("codemirror/lib/codemirror.css");
 require("codemirror/addon/fold/foldgutter.css");
 require("./scss/codemirrorMods.scss");
-import {default as prefixFold,findFirstPrefixLine} from "./prefixFold";
-import {getPrefixesFromQuery} from "./prefixUtils";
-import {getPreviousNonWsToken,getNextNonWsToken,getCompleteToken} from './tokenUtils'
+require("./scss/buttons.scss");
+
+import { default as prefixFold, findFirstPrefixLine } from "./prefixFold";
+import { getPrefixesFromQuery } from "./prefixUtils";
+import { getPreviousNonWsToken, getNextNonWsToken, getCompleteToken } from "./tokenUtils";
 import * as sparql11Mode from "../grammar/tokenizer";
+import YStorage from "yasgui-utils/build/Storage";
+import { drawSvgStringAsElement } from "yasgui-utils/build";
 CodeMirror.defineMode("sparql11", sparql11Mode.default);
-
-
+import * as imgs from "./imgs";
+// export var
 import { merge } from "lodash";
 // @ts-ignore
 // var Yasqe = CodeMirror
 interface Yasqe extends CodeMirror.Editor {
   getDoc: () => Yasqe.Doc;
   getTokenTypeAt: (pos: CodeMirror.Position) => string;
-  foldCode: any
+  foldCode: any;
 }
 // var Yasqe = CodeMirror
 class Yasqe {
-  private rootEl: HTMLDivElement;
+  private static storageNamespace = "triply";
+  public rootEl: HTMLDivElement;
+  private storage: YStorage;
   public config: Yasqe.Config;
   constructor(parent: HTMLElement, conf: Yasqe.Config = {}) {
     // super();
@@ -40,6 +46,8 @@ class Yasqe {
     this.config = merge({}, Yasqe.defaults, conf);
     //inherit codemirror props
     (<any>Object).assign(this, CodeMirror.prototype, CodeMirror(this.rootEl, this.config));
+    this.storage = new YStorage(Yasqe.storageNamespace);
+    this.drawButtons();
   }
   getQueryType() {
     return "TODO";
@@ -71,22 +79,18 @@ class Yasqe {
     CodeMirror.signal(this, event, data);
   }
   // yasqe.lastQueryDuration = null;
-  getCompleteToken(token:Yasqe.Token, cur:Yasqe.Position) {
+  getCompleteToken(token: Yasqe.Token, cur: Yasqe.Position) {
     return getCompleteToken(this, token, cur);
-  };
-  getPreviousNonWsToken(line:number, token:Yasqe.Token) {
+  }
+  getPreviousNonWsToken(line: number, token: Yasqe.Token) {
     return getPreviousNonWsToken(this, line, token);
-  };
-  getNextNonWsToken(lineNumber:number, charNumber?:number) {
+  }
+  getNextNonWsToken(lineNumber: number, charNumber?: number) {
     return getNextNonWsToken(this, lineNumber, charNumber);
-  };
+  }
   collapsePrefixes(collapse = true) {
-    this.foldCode(
-      findFirstPrefixLine(this),
-      (<any>CodeMirror).fold.prefix,
-      collapse ? "fold" : "unfold"
-    );
-  };
+    this.foldCode(findFirstPrefixLine(this), (<any>CodeMirror).fold.prefix, collapse ? "fold" : "unfold");
+  }
   // yasqe.query = function(callbackOrConfig) {
   //   root.executeQuery(yasqe, callbackOrConfig);
   // };
@@ -97,7 +101,7 @@ class Yasqe {
 
   getPrefixesFromQuery() {
     return getPrefixesFromQuery(this);
-  };
+  }
 
   // yasqe.addPrefixes = function(prefixes) {
   //   return require("./prefixUtils.js").addPrefixes(yasqe, prefixes);
@@ -183,35 +187,151 @@ class Yasqe {
   disableCompleter(name: string) {
     // removeCompleterFromSettings(yasqe.options, name);
   }
+  private getStorageId() {
+    if (typeof this.config.persistenceId === "string") return this.config.persistenceId;
+    return this.config.persistenceId(this);
+  }
+  drawButtons() {
+    const buttons = document.createElement("div");
+    buttons.className = "yasqe_buttons";
+    this.getWrapperElement().appendChild(buttons);
 
+    /**
+     * draw share link button
+     */
+    if (this.config.createShareLink) {
+      var svgShare = drawSvgStringAsElement(imgs.share);
+      console.log(svgShare)
+      svgShare.className = 'yasqe_share';
+      svgShare.title = 'Share your query';
+      buttons.appendChild(svgShare);
+      svgShare.onclick = (event: MouseEvent) => {
+        event.stopPropagation();
+        var popup = document.createElement("div");
+        popup.className = "yasqe_sharePopup";
+        popup.onclick = function(event) {
+          event.stopPropagation();
+        };
+        buttons.appendChild(popup);
+        document.body.addEventListener(
+          "click",
+          () => {
+            if (popup) {
+              // popup.remove();
+              // popup = undefined;
+            }
+          },
+          true
+        );
+        var input = document.createElement("input");
+        input.type = 'text'
+        input.value = 'BLAAA'
+        // input.value = document.location.protocol + "//" + document.location.host + document.location.pathname + document.location.search + "#";
+
+        // $.param(yasqe.options.createShareLink(yasqe))
+
+        input.onfocus = function() {
+          input.select();
+        };
+        // Work around Chrome's little problem
+        input.onmouseup = function() {
+          // $this.unbind("mouseup");
+          return false;
+        };
+        // popup.innerHTML = "";
+
+        var inputWrapper = document.createElement("div");
+        inputWrapper.className = "inputWrapper";
+
+        inputWrapper.appendChild(input);
+
+        popup.appendChild(inputWrapper);
+
+        if (this.config.createShortLink) {
+          popup.className = popup.className += " enableShort";
+          const shortBtn = document.createElement("button");
+          shortBtn.innerHTML = "Shorten";
+          shortBtn.className = "yasqe_btn yasqe_btn-sm shorten";
+          shortBtn.onclick = () => {
+            shortBtn.disabled = true;
+            this.config.createShortLink(this, input.value).then(
+              value => {
+                input.value = value;
+                input.focus();
+              },
+              err => {
+                input.remove();
+                const errSpan = document.createElement("span");
+                errSpan.className = "shortlinkErr";
+                errSpan.textContent = err.message;
+              }
+            );
+          };
+        }
+
+        const curlBtn = document.createElement("button");
+        curlBtn.className = "yasqe_btn yasqe_btn-sm curl";
+        curlBtn.onclick = () => {
+          curlBtn.disabled = true;
+
+          // input.value = this.getAsCurl();
+          input.value = "TODO getAsCurl";
+          input.focus();
+          popup.appendChild(curlBtn);
+        };
+
+        const svgPos = svgShare.getBoundingClientRect();
+        console.log({svgPos});
+        console.log(svgShare.offsetTop, svgShare.offsetLeft)
+        // popup
+        //   .css("top", positions.top + svgShare.outerHeight() + parseInt(popup.css("padding-top")) + "px")
+        //   .css("left", positions.left + svgShare.outerWidth() - popup.outerWidth() + "px");
+        popup.style.top = svgShare.offsetTop + svgPos.height + 'px';
+        popup.style.left = svgShare.offsetLeft + svgShare.clientWidth - popup.clientWidth + 'px';
+        input.focus();
+      };
+    }
+
+  }
+  store() {
+    // var storageId = utils.getPersistencyId(yasqe, yasqe.options.persistent);
+    // if (storageId) {
+    //   yutils.storage.set(storageId, yasqe.getValue(), "month", yasqe.options.onQuotaExceeded);
+    // }
+    this.storage.set(this.getStorageId(), this.getValue(), this.config.persistencyExpire, e => {
+      console.warn("Localstorage quota exceeded. Clearing all queries");
+      Yasqe.clearStorage();
+    });
+  }
+  static clearStorage() {
+    const storage = new YStorage(Yasqe.storageNamespace);
+    storage.removeNamespace();
+  }
 }
 
 CodeMirror.registerHelper("fold", "prefix", prefixFold);
 import getDefaults from "./defaults";
 namespace Yasqe {
-  export interface Doc extends CodeMirror.Doc {
-
-  }
+  export interface Doc extends CodeMirror.Doc {}
   export interface Token extends CodeMirror.Token {
     state: sparql11Mode.State;
   }
   //copy the fold we registered registered
   // export var fold:any = (<any>CodeMirror).fold
-export var defaults: Yasqe.Config = getDefaults(Yasqe);
+  export var defaults: Yasqe.Config = getDefaults(Yasqe);
   export type TokenizerState = sparql11Mode.State;
   export type Position = CodeMirror.Position;
   export interface Config extends CodeMirror.EditorConfiguration {
     mode?: string;
     collapsePrefixesOnLoad?: boolean;
     syntaxErrorCheck?: boolean;
-    onQuotaExceeded?: (e: Error) => any;
     /**
      * Show a button with which users can create a link to this query. Set this value to null to disable this functionality.
      * By default, this feature is enabled, and the only the query value is appended to the link.
      * ps. This function should return an object which is parseable by jQuery.param (http://api.jquery.com/jQuery.param/)
      */
-    createShareLink?: (todo: number) => number;
-    createShortLink?: (todo: number) => number;
+    createShareLink?: (yasqe:Yasqe) => string;
+    createShortLink?: (yasqe: Yasqe, longLink: string) => Promise<string>;
     consumeShareLink?: (todo: number) => number;
     /**
      * Change persistency settings for the YASQE query value. Setting the values
@@ -221,6 +341,8 @@ export var defaults: Yasqe.Config = getDefaults(Yasqe);
      * By default, the ID is dynamically generated using the closest dom ID, to avoid collissions when using multiple YASQE items on one
      * page
      */
+    persistenceId?: ((yasqe: Yasqe) => string) | string;
+    persistencyExpire?: number; //seconds
     sparql?: {
       queryName?: (yasqe: Yasqe) => string;
       showQueryButton?: boolean;
