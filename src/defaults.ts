@@ -107,7 +107,7 @@ SELECT * WHERE {
       showQueryButton: true,
 
       endpoint: "http://dbpedia.org/sparql",
-      requestMethod: "GET",
+      requestMethod: "POST",
       acceptHeaderGraph: "text/turtle,*/*;q=0.9",
       acceptHeaderSelect: "application/sparql-results+json,*/*;q=0.9",
       acceptHeaderUpdate: "text/plain,*/*;q=0.9",

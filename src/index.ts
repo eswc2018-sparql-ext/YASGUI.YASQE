@@ -15,7 +15,7 @@ require("codemirror/addon/display/fullscreen.css");
 require("./scss/codemirrorMods.scss");
 require("./scss/yasqe.scss");
 require("./scss/buttons.scss");
-
+import * as superagent from 'superagent'
 import { default as prefixFold, findFirstPrefixLine } from "./prefixFold";
 import { getPrefixesFromQuery } from "./prefixUtils";
 import { getPreviousNonWsToken, getNextNonWsToken, getCompleteToken } from "./tokenUtils";
@@ -33,6 +33,17 @@ interface Yasqe extends CodeMirror.Editor {
   getDoc: () => Yasqe.Doc;
   getTokenTypeAt: (pos: CodeMirror.Position) => string;
   foldCode: any;
+
+  on(eventName: 'request', handler: (instance: Yasqe, req:superagent.SuperAgentRequest) => void ): void;
+  off(eventName: 'request', handler: (instance: Yasqe, req:superagent.SuperAgentRequest) => void ): void;
+  on(eventName: 'response', handler: (instance: Yasqe, req:superagent.SuperAgentRequest, duration:number) => void ): void;
+  off(eventName: 'response', handler: (instance: Yasqe, req:superagent.SuperAgentRequest, duration:number) => void ): void;
+  on(eventName: 'error', handler: (instance: Yasqe, err:any) => void ): void;
+  off(eventName: 'error', handler: (instance: Yasqe, err:any) => void ): void;
+  on(eventName: 'queryResults', handler: (instance: Yasqe, results:any) => void, duration:number): void;
+  off(eventName: 'queryResults', handler: (instance: Yasqe, results:any, duration:number) => void ): void;
+  on(eventName: string, handler: (instance: Yasqe) => void ): void;
+  off(eventName: string, handler: (instance: Yasqe) => void ): void;
 }
 // var Yasqe = CodeMirror
 class Yasqe {
@@ -41,7 +52,7 @@ class Yasqe {
   public queryValid = true;
   public lastQueryDuration:number;
   public queryType:Yasqe.TokenizerState['queryType']
-  private isQuerying = false;
+  private req:superagent.SuperAgentRequest
   private queryStatus: "valid" | "error" ;
   private queryBtn: HTMLDivElement;
   public rootEl: HTMLDivElement;
@@ -56,12 +67,27 @@ class Yasqe {
     this.config = merge({}, Yasqe.defaults, conf);
     //inherit codemirror props
     (<any>Object).assign(this, CodeMirror.prototype, CodeMirror(this.rootEl, this.config));
+
+
+    //Do some post processing
     this.storage = new YStorage(Yasqe.storageNamespace);
     this.drawButtons();
+    var storageId = this.getStorageId();
+    if (storageId) {
+      var valueFromStorage = this.storage.get<string>(storageId);
+      if (valueFromStorage) this.setValue(valueFromStorage);
+    }
+
+    /**
+     * Register listeners
+     */
     this.on("change", (eventInfo)=> {
       this.checkSyntax();
       this.updateQueryButton();
       // root.positionButtons(yasqe);
+    });
+    this.on("blur", () => {
+      this.store();
     });
     this.on("changes", () => {
       //e.g. on paste
@@ -69,18 +95,21 @@ class Yasqe {
       this.updateQueryButton();
       // root.positionButtons(yasqe);
     });
-    this.on('query', () => {
-      this.isQuerying = true;
+
+
+    this.on('request', (yasqe,req) => {
+
+      this.req = req
       this.updateQueryButton();
     });
-    (<any>this).on('queryFinish', (response:any, duration:number) => {
+    this.on('response', (yasqe, response, duration) => {
         this.lastQueryDuration = duration;
-        this.isQuerying = false;
+        this.req = null;
         this.updateQueryButton();
     });
   }
   getQueryType() {
-    return "TODO";
+    return this.queryType;
   }
   getQueryMode(): "update" | "query" {
     switch (this.getQueryType()) {
@@ -105,8 +134,8 @@ class Yasqe {
   //     if (root.Autocompleters[name]) yasqe.autocompleters.init(name, root.Autocompleters[name]);
   //   });
   // }
-  emit(event: string, data?: any) {
-    CodeMirror.signal(this, event, data);
+  emit(event: string, ...data: any[]) {
+    CodeMirror.signal(this, event, this, ...data);
   }
   getCompleteToken(token: Yasqe.Token, cur: Yasqe.Position) {
     return getCompleteToken(this, token, cur);
@@ -432,12 +461,12 @@ class Yasqe {
 
       this.queryBtn.onclick = () => {
         console.warn("TODO: check whether query is busy, and abort request");
-        const isBusy = false;
-        if (isBusy) {
-          //abort
+        if (this.req) {
+          this.req.abort();
           this.updateQueryButton();
+        } else {
+          this.query();
         }
-        this.query();
       };
       buttons.appendChild(this.queryBtn);
       this.updateQueryButton();
@@ -468,7 +497,7 @@ class Yasqe {
     /**
      * Set/remove spinner if needed
      */
-   if (this.isQuerying && this.queryBtn.className.indexOf('busy') < 0) {
+   if (this.req && this.queryBtn.className.indexOf('busy') < 0) {
      this.queryBtn.className = this.queryBtn.className += ' busy'
    } else {
      this.queryBtn.className = this.queryBtn.className.replace('busy', '');
@@ -476,10 +505,6 @@ class Yasqe {
 
   }
   store() {
-    // var storageId = utils.getPersistencyId(yasqe, yasqe.options.persistent);
-    // if (storageId) {
-    //   yutils.storage.set(storageId, yasqe.getValue(), "month", yasqe.options.onQuotaExceeded);
-    // }
     this.storage.set(this.getStorageId(), this.getValue(), this.config.persistencyExpire, e => {
       console.warn("Localstorage quota exceeded. Clearing all queries");
       Yasqe.clearStorage();

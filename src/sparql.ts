@@ -59,10 +59,10 @@ export function executeQuery(yasqe:Yasqe,config?: YasqeAjaxConfig ):Promise<any>
   // ajaxConfig.complete = completeCallbacks;
   // return ajaxConfig;
 
-  yasqe.emit("query", populatedConfig);
   var req:superagent.SuperAgentRequest;
   if (populatedConfig.reqMethod==='POST') {
     req = superagent.post(populatedConfig.url);
+    req.type('form');
     req.send(populatedConfig.args)
   } else {
     req = superagent.get(populatedConfig.url);
@@ -70,16 +70,16 @@ export function executeQuery(yasqe:Yasqe,config?: YasqeAjaxConfig ):Promise<any>
   }
   req.accept(populatedConfig.accept);
   req.set(populatedConfig.headers)
+  yasqe.emit("request", req,populatedConfig);
   return req.then((result) => {
-    yasqe.emit('queryFinish', {response:result, duration: Date.now() - queryStart})
-    yasqe.emit('response', result.body)
+    yasqe.emit('response', result, Date.now() - queryStart)
+    yasqe.emit('queryResults', result.body, Date.now() - queryStart)
     return result.body
   }, (e) => {
-    yasqe.emit('queryFinish')
+    yasqe.emit('response',e,Date.now() - queryStart)
     yasqe.emit('error', e);
     throw e;
   });
-  // yasqe.xhr = $.ajax(YASQE.getAjaxConfig(yasqe, callbackOrConfig));
 };
 
 
