@@ -15,48 +15,54 @@ require("codemirror/addon/display/fullscreen.css");
 require("./scss/codemirrorMods.scss");
 require("./scss/yasqe.scss");
 require("./scss/buttons.scss");
-import * as superagent from 'superagent'
+import * as superagent from "superagent";
 import { default as prefixFold, findFirstPrefixLine } from "./prefixFold";
 import { getPrefixesFromQuery } from "./prefixUtils";
 import { getPreviousNonWsToken, getNextNonWsToken, getCompleteToken } from "./tokenUtils";
 import * as sparql11Mode from "../grammar/tokenizer";
 import YStorage from "yasgui-utils/build/Storage";
 import { drawSvgStringAsElement } from "yasgui-utils/build";
-import * as Sparql from './sparql'
+import * as Sparql from "./sparql";
 CodeMirror.defineMode("sparql11", sparql11Mode.default);
 import * as imgs from "./imgs";
 // export var
 import { merge } from "lodash";
 // @ts-ignore
 // var Yasqe = CodeMirror
+
 interface Yasqe extends CodeMirror.Editor {
   getDoc: () => Yasqe.Doc;
   getTokenTypeAt: (pos: CodeMirror.Position) => string;
   foldCode: any;
-
-  on(eventName: 'request', handler: (instance: Yasqe, req:superagent.SuperAgentRequest) => void ): void;
-  off(eventName: 'request', handler: (instance: Yasqe, req:superagent.SuperAgentRequest) => void ): void;
-  on(eventName: 'response', handler: (instance: Yasqe, req:superagent.SuperAgentRequest, duration:number) => void ): void;
-  off(eventName: 'response', handler: (instance: Yasqe, req:superagent.SuperAgentRequest, duration:number) => void ): void;
-  on(eventName: 'error', handler: (instance: Yasqe, err:any) => void ): void;
-  off(eventName: 'error', handler: (instance: Yasqe, err:any) => void ): void;
-  on(eventName: 'queryResults', handler: (instance: Yasqe, results:any) => void, duration:number): void;
-  off(eventName: 'queryResults', handler: (instance: Yasqe, results:any, duration:number) => void ): void;
-  on(eventName: string, handler: (instance: Yasqe) => void ): void;
-  off(eventName: string, handler: (instance: Yasqe) => void ): void;
+  on(eventName: "request", handler: (instance: Yasqe, req: superagent.SuperAgentRequest) => void): void;
+  off(eventName: "request", handler: (instance: Yasqe, req: superagent.SuperAgentRequest) => void): void;
+  on(
+    eventName: "response",
+    handler: (instance: Yasqe, req: superagent.SuperAgentRequest, duration: number) => void
+  ): void;
+  off(
+    eventName: "response",
+    handler: (instance: Yasqe, req: superagent.SuperAgentRequest, duration: number) => void
+  ): void;
+  on(eventName: "error", handler: (instance: Yasqe, err: any) => void): void;
+  off(eventName: "error", handler: (instance: Yasqe, err: any) => void): void;
+  on(eventName: "queryResults", handler: (instance: Yasqe, results: any) => void, duration: number): void;
+  off(eventName: "queryResults", handler: (instance: Yasqe, results: any, duration: number) => void): void;
+  on(eventName: string, handler: (instance: any) => void): void;
+  off(eventName: string, handler: (instance: any) => void): void;
 }
 // var Yasqe = CodeMirror
 class Yasqe {
   private static storageNamespace = "triply";
   private prevQueryValid = false;
   public queryValid = true;
-  public lastQueryDuration:number;
-  public queryType:Yasqe.TokenizerState['queryType']
-  private req:superagent.SuperAgentRequest
-  private queryStatus: "valid" | "error" ;
+  public lastQueryDuration: number;
+  public queryType: Yasqe.TokenizerState["queryType"];
+  private req: superagent.SuperAgentRequest;
+  private queryStatus: "valid" | "error";
   private queryBtn: HTMLDivElement;
   public rootEl: HTMLDivElement;
-  private storage: YStorage;
+  public storage: YStorage;
   public config: Yasqe.Config;
   constructor(parent: HTMLElement, conf: Yasqe.Config = {}) {
     // super();
@@ -67,7 +73,6 @@ class Yasqe {
     this.config = merge({}, Yasqe.defaults, conf);
     //inherit codemirror props
     (<any>Object).assign(this, CodeMirror.prototype, CodeMirror(this.rootEl, this.config));
-
 
     //Do some post processing
     this.storage = new YStorage(Yasqe.storageNamespace);
@@ -81,13 +86,13 @@ class Yasqe {
     /**
      * Register listeners
      */
-    this.on("change", (eventInfo)=> {
+    this.on("change", eventInfo => {
       this.checkSyntax();
       this.updateQueryButton();
       // root.positionButtons(yasqe);
     });
     this.on("blur", () => {
-      this.store();
+      this.saveQuery();
     });
     this.on("changes", () => {
       //e.g. on paste
@@ -96,16 +101,14 @@ class Yasqe {
       // root.positionButtons(yasqe);
     });
 
-
-    this.on('request', (yasqe,req) => {
-
-      this.req = req
+    this.on("request", (yasqe, req) => {
+      this.req = req;
       this.updateQueryButton();
     });
-    this.on('response', (yasqe, response, duration) => {
-        this.lastQueryDuration = duration;
-        this.req = null;
-        this.updateQueryButton();
+    this.on("response", (yasqe, response, duration) => {
+      this.lastQueryDuration = duration;
+      this.req = null;
+      this.updateQueryButton();
     });
   }
   getQueryType() {
@@ -137,7 +140,7 @@ class Yasqe {
   emit(event: string, ...data: any[]) {
     CodeMirror.signal(this, event, this, ...data);
   }
-  getCompleteToken(token: Yasqe.Token, cur: Yasqe.Position) {
+  getCompleteToken(token?: Yasqe.Token, cur?: Yasqe.Position) {
     return getCompleteToken(this, token, cur);
   }
   getPreviousNonWsToken(line: number, token: Yasqe.Token) {
@@ -149,10 +152,9 @@ class Yasqe {
   collapsePrefixes(collapse = true) {
     this.foldCode(findFirstPrefixLine(this), (<any>CodeMirror).fold.prefix, collapse ? "fold" : "unfold");
   }
-  query(config?:Sparql.YasqeAjaxConfig) {
+  query(config?: Sparql.YasqeAjaxConfig) {
     return Sparql.executeQuery(this, config);
   }
-
 
   getPrefixesFromQuery() {
     return getPrefixesFromQuery(this);
@@ -237,10 +239,10 @@ class Yasqe {
   checkSyntax() {
     this.queryValid = true;
 
-    console.log('clear gutter')
+    console.log("clear gutter");
     this.clearGutter("gutterErrorBar");
 
-    var state:Yasqe.TokenizerState = null;
+    var state: Yasqe.TokenizerState = null;
     for (var l = 0; l < this.getDoc().lineCount(); ++l) {
       var precise = false;
       if (!this.prevQueryValid) {
@@ -250,7 +252,7 @@ class Yasqe {
         precise = true;
       }
 
-      var token:Yasqe.Token = this.getTokenAt(
+      var token: Yasqe.Token = this.getTokenAt(
         {
           line: l,
           ch: this.getDoc().getLine(l).length
@@ -262,10 +264,10 @@ class Yasqe {
       if (state.OK == false) {
         if (!this.config.syntaxErrorCheck) {
           //the library we use already marks everything as being an error. Overwrite this class attribute.
-          const els = this.getWrapperElement().querySelectorAll('.sp-error')
+          const els = this.getWrapperElement().querySelectorAll(".sp-error");
           for (let i = 0; i < els.length; i++) {
-            var el:any = els[i];
-            if (el.style) el.style.color = 'black'
+            var el: any = els[i];
+            if (el.style) el.style.color = "black";
           }
           //we don't want the gutter error, so return
           return;
@@ -291,7 +293,7 @@ class Yasqe {
         // warningEl.style.marginTop = "2px";
         // warningEl.style.marginLeft = "2px";
         warningEl.className = "parseErrorIcon";
-        console.log('set gutter marker',l, warningEl)
+        console.log("set gutter marker", l, warningEl);
         this.setGutterMarker(l, "gutterErrorBar", warningEl);
 
         this.queryValid = false;
@@ -306,9 +308,11 @@ class Yasqe {
   disableCompleter(name: string) {
     // removeCompleterFromSettings(yasqe.options, name);
   }
-  private getStorageId() {
-    if (typeof this.config.persistenceId === "string") return this.config.persistenceId;
-    return this.config.persistenceId(this);
+  public getStorageId(getter?: Yasqe.Config["persistenceId"]) {
+    const persistenceId = getter || this.config.persistenceId;
+    if (!persistenceId) return undefined;
+    if (typeof persistenceId === "string") return persistenceId;
+    return persistenceId(this);
   }
   drawButtons() {
     const buttons = document.createElement("div");
@@ -445,19 +449,18 @@ class Yasqe {
       /**
        * Add busy/valid/error btns
        */
-       const queryEl = drawSvgStringAsElement(imgs.query);
-       queryEl.className = queryEl.className + ' queryIcon';
-       this.queryBtn.appendChild(queryEl);
+      const queryEl = drawSvgStringAsElement(imgs.query);
+      queryEl.className = queryEl.className + " queryIcon";
+      this.queryBtn.appendChild(queryEl);
 
-       //todo: add warning icon
-       const warningIcon = drawSvgStringAsElement(imgs.warning);
-       warningIcon.className = warningIcon.className + ' warningIcon';
-       this.queryBtn.appendChild(warningIcon);
+      //todo: add warning icon
+      const warningIcon = drawSvgStringAsElement(imgs.warning);
+      warningIcon.className = warningIcon.className + " warningIcon";
+      this.queryBtn.appendChild(warningIcon);
 
-       // const loaderEl = drawSvgStringAsElement(imgs.query);
-       // loaderEl.className = loaderEl.className + ' loadingIcon';
-       // this.queryBtn.appendChild(loaderEl);
-
+      // const loaderEl = drawSvgStringAsElement(imgs.query);
+      // loaderEl.className = loaderEl.className + ' loadingIcon';
+      // this.queryBtn.appendChild(loaderEl);
 
       this.queryBtn.onclick = () => {
         console.warn("TODO: check whether query is busy, and abort request");
@@ -490,25 +493,30 @@ class Yasqe {
           return c.indexOf("query_") !== 0;
         })
         .join(" ");
-      this.queryBtn.className = this.queryBtn.className + ' query_' + status
+      this.queryBtn.className = this.queryBtn.className + " query_" + status;
       this.queryStatus = status;
     }
 
     /**
      * Set/remove spinner if needed
      */
-   if (this.req && this.queryBtn.className.indexOf('busy') < 0) {
-     this.queryBtn.className = this.queryBtn.className += ' busy'
-   } else {
-     this.queryBtn.className = this.queryBtn.className.replace('busy', '');
-   }
-
+    if (this.req && this.queryBtn.className.indexOf("busy") < 0) {
+      this.queryBtn.className = this.queryBtn.className += " busy";
+    } else {
+      this.queryBtn.className = this.queryBtn.className.replace("busy", "");
+    }
   }
-  store() {
-    this.storage.set(this.getStorageId(), this.getValue(), this.config.persistencyExpire, e => {
-      console.warn("Localstorage quota exceeded. Clearing all queries");
-      Yasqe.clearStorage();
-    });
+  handleLocalStorageQuotaFull(e: any) {
+    console.warn("Localstorage quota exceeded. Clearing all queries");
+    Yasqe.clearStorage();
+  }
+  saveQuery() {
+    this.storage.set(
+      this.getStorageId(),
+      this.getValue(),
+      this.config.persistencyExpire,
+      this.handleLocalStorageQuotaFull
+    );
   }
   static clearStorage() {
     const storage = new YStorage(Yasqe.storageNamespace);
@@ -528,6 +536,50 @@ namespace Yasqe {
   export var defaults: Yasqe.Config = getDefaults(Yasqe);
   export type TokenizerState = sparql11Mode.State;
   export type Position = CodeMirror.Position;
+  export interface Hint {
+    text: string;
+    displayText?: string;
+    className?: string;
+    render?: (el: HTMLElement, self: Hint, data: any) => void;
+    hint?: (cm: Yasqe, options: HintFnConfig) => Promise<Hint>;
+    from?: Yasqe.Position;
+    to?: Yasqe.Position;
+
+    // text: string
+    //     The completion text. This is the only required property.
+    // displayText: string
+    //     The text that should be displayed in the menu.
+    // className: string
+    //     A CSS class name to apply to the completion's line in the menu.
+    // render: fn(Element, self, data)
+    //     A method used to create the DOM structure for showing the completion by appending it to its first argument.
+    // hint: fn(CodeMirror, self, data)
+    //     A method used to actually apply the completion, instead of the default behavior.
+    // from: {line, ch}
+    //     Optional from position that will be used by pick() instead of the global one passed with the full list of completions.
+    // to: {line, ch}
+    //     Optional to position that will be used by pick() instead of the global one passed with the full list of completions.
+    //
+  }
+  export interface HintFnConfig {
+    completeOnSingleClick?: boolean;
+    container?: HTMLElement;
+    closeCharacters?: RegExp;
+    completeSingle?: boolean;
+    async?: boolean;
+    // A hinting function, as specified above. It is possible to set the async property on a hinting function to true, in which case it will be called with arguments (cm, callback, ?options), and the completion interface will only be popped up when the hinting function calls the callback, passing it the object holding the completions. The hinting function can also return a promise, and the completion interface will only be popped when the promise resolves. By default, hinting only works when there is no selection. You can give a hinting function a supportsSelection property with a truthy value to indicate that it supports selections.
+    hint?: any;
+
+    // Whether the pop-up should be horizontally aligned with the start of the word (true, default), or with the cursor (false).
+    alignWithWord?: boolean;
+    // When enabled (which is the default), the pop-up will close when the editor is unfocused.
+    closeOnUnfocus?: boolean;
+    // Allows you to provide a custom key map of keys to be active when the pop-up is active. The handlers will be called with an extra argument, a handle to the completion menu, which has moveFocus(n), setFocus(n), pick(), and close() methods (see the source for details), that can be used to change the focused element, pick the current element or close the menu. Additionally menuSize() can give you access to the size of the current dropdown menu, length give you the number of available completions, and data give you full access to the completion returned by the hinting function.
+    customKeys?: any;
+
+    // Like customKeys above, but the bindings will be added to the set of default bindings, instead of replacing them.
+    extraKeys?: any;
+  }
   export interface Config extends CodeMirror.EditorConfiguration {
     mode?: string;
     collapsePrefixesOnLoad?: boolean;
@@ -553,17 +605,17 @@ namespace Yasqe {
     sparql?: {
       queryName?: (yasqe: Yasqe) => string;
       showQueryButton?: boolean;
-      endpoint?: string | ((yasqe:Yasqe) => string);
+      endpoint?: string | ((yasqe: Yasqe) => string);
       requestMethod?: "POST" | "GET";
-      acceptHeaderGraph?: string | ((yasqe:Yasqe) => string);
-      acceptHeaderSelect?: string | ((yasqe:Yasqe) => string);
-      acceptHeaderUpdate?: string | ((yasqe:Yasqe) => string);
+      acceptHeaderGraph?: string | ((yasqe: Yasqe) => string);
+      acceptHeaderSelect?: string | ((yasqe: Yasqe) => string);
+      acceptHeaderUpdate?: string | ((yasqe: Yasqe) => string);
       namedGraphs?: string[];
       defaultGraphs?: string[];
       args?: string[];
       headers?: { [key: string]: string };
-      getQueryForAjax?: (yasqe:Yasqe) => string;
-      xhrFields?: {[key:string]:any}
+      getQueryForAjax?: (yasqe: Yasqe) => string;
+      xhrFields?: { [key: string]: any };
     };
     //Addon specific addon ts defs, or missing props from codemirror conf
     highlightSelectionMatches?: { showToken?: RegExp; annotateScrollbar?: boolean };
@@ -572,6 +624,7 @@ namespace Yasqe {
       rangeFinder?: any;
     };
     matchBrackets?: boolean;
+    autocompleters?: string[];
   }
 
   //add missing static functions, added by e.g. addons
