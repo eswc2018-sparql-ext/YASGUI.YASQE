@@ -149,7 +149,7 @@ class Yasqe {
       return Promise.reject(new Error("Autocompleter " + name + " is not a registered autocompleter"));
     if (this.config.autocompleters.indexOf(name) < 0) this.config.autocompleters.push(name);
     this.autocompleters[name] = new Autocompleter.Completer(this, Yasqe.Autocompleters[name], name);
-    return this.autocompleters[name].populateCompletions();
+    return this.autocompleters[name].initialize();
   }
   disableCompleter(name: string) {
     this.config.autocompleters = this.config.autocompleters.filter(a => a !== name);
@@ -185,7 +185,7 @@ class Yasqe {
   getPrefixesFromQuery() {
     return getPrefixesFromQuery(this);
   }
-
+  //TODO: if enabled, update the prefixes completer
   // yasqe.addPrefixes = function(prefixes) {
   //   return require("./prefixUtils.js").addPrefixes(yasqe, prefixes);
   // };

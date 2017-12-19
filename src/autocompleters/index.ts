@@ -2,6 +2,7 @@ import * as Yasqe from "../";
 import Trie from "../trie";
 import { EventEmitter } from "events";
 export class CompleterConfig {
+  onInitialize?: (yasqe:Yasqe) => void;//allows for e.g. registering event listeners in yasqe, like the prefix autocompleter does
   isValidCompletionPosition: (yasqe: Yasqe) => boolean;
   get: (yasqe: Yasqe, token?: Yasqe.Token) => Promise<string[]> | string[];
   preProcessToken?: (yasqe: Yasqe, token: Yasqe.Token) => AutocompletionToken;
@@ -10,10 +11,10 @@ export class CompleterConfig {
   bulk: boolean;
   autoShow?: boolean;
   persistenceId?: Yasqe.Config["persistenceId"];
-  name?: string;
+  name: string;
 }
 
-interface AutocompletionToken extends Yasqe.Token {
+export interface AutocompletionToken extends Yasqe.Token {
   autocompletionString?: string;
 }
 export class Completer extends EventEmitter {
@@ -54,7 +55,7 @@ export class Completer extends EventEmitter {
   /**
    * Get completion list from `get` function
    */
-  private getCompletions(token?: AutocompletionToken): Promise<string[]> {
+  public getCompletions(token?: AutocompletionToken): Promise<string[]> {
     if (!this.config.get) return;
 
     //No token, so probably getting as bulk
@@ -78,7 +79,8 @@ export class Completer extends EventEmitter {
   /**
    * Populates completions. Pre-fetches those if bulk is set to true
    */
-  public populateCompletions(): Promise<void> {
+  public initialize(): Promise<void> {
+    if (this.config.onInitialize) this.config.onInitialize(this.yasqe)
     if (this.config.bulk) {
       if (this.config.get instanceof Array) {
         // we don't care whether the completions are already stored in
@@ -102,73 +104,6 @@ export class Completer extends EventEmitter {
     return Promise.resolve();
   }
 
-  // getSuggestionsAsHintObject(suggestions:string[], token:AutocompletionToken):Yasqe.Hint {
-  //   var hintList:Yasqe.Hint[] = suggestions.map(suggestedString => {
-  //     if (this.config.postProcessSuggestion) {
-  //       suggestedString = this.config.postProcessSuggestion(token, suggestedString);
-  //     }
-  //     return {
-  //       text: suggestedString,
-  //       displayText: suggestedString,
-  //       hint: this.selectHint
-  //     };
-  //   });
-  //
-  //   var cur = this.yasqe.getDoc().getCursor();
-  //   var returnObj = {
-  //     completionToken: token.string,
-  //     list: hintList,
-  //     from: {
-  //       line: cur.line,
-  //       ch: token.start
-  //     },
-  //     to: {
-  //       line: cur.line,
-  //       ch: token.end
-  //     }
-  //   };
-  //   // //if we have some autocompletion handlers specified, add these these to the object. Codemirror will take care of firing these
-  //   // if (completer.callbacks) {
-  //   //   for (var callbackName in completer.callbacks) {
-  //   //     if (completer.callbacks[callbackName]) {
-  //   //       YASQE.on(returnObj, callbackName, completer.callbacks[callbackName]);
-  //   //     }
-  //   //   }
-  //   // }
-  //   return returnObj;
-  // };
-
-  // private getCompletionHintsObject():Promise<Yasqe.Hint> {
-  //   var getSuggestionsFromToken = (partialToken:AutocompletionToken) => {
-  //     var stringToAutocomplete = partialToken.autocompletionString || partialToken.string;
-  //     var suggestions = [];
-  //     if (this.trie) {
-  //       suggestions = this.trie.autoComplete(stringToAutocomplete);
-  //     } else if (typeof this.config.get == "function" && this.config.async == false) {
-  //       suggestions = <any>this.config.get(stringToAutocomplete);
-  //     } else if (this.config.get instanceof Array) {
-  //       suggestions = this.config.get.filter(possibleMatch => possibleMatch.indexOf(stringToAutocomplete) === 0)
-  //     }
-  //     return this.getSuggestionsAsHintObject(suggestions, partialToken);
-  //   };
-  //
-  //   var token = this.yasqe.getCompleteToken();
-  //   if (this.config.preProcessToken) {
-  //     token = this.config.preProcessToken(token);
-  //   }
-  //
-  //   if (token) {
-  //     this.config.get(token)
-  //     if (!this.config.bulk && this.config.async) {
-  //       // var wrappedCallback = function(suggestions) {
-  //       //   callback(getSuggestionsAsHintObject(suggestions, completer, token));
-  //       // };
-  //        this.config.get(token).then(getSuggestionsAsHintObject);
-  //     } else {
-  //       return getSuggestionsFromToken(token);
-  //     }
-  //   }
-  // };
   private isValidPosition(): boolean {
     if (!this.config.isValidCompletionPosition) return false; //no way to check whether we are in a valid position
     if (!this.config.isValidCompletionPosition(this.yasqe)) {

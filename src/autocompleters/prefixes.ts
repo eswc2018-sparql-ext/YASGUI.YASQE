@@ -1,5 +1,5 @@
 import * as Autocompleter from "./";
-var tokenTypes = {
+var tokenTypes: { [id: string]: "prefixed" | "var" } = {
   "string-2": "prefixed",
   atom: "var"
 };
@@ -10,7 +10,46 @@ import * as superagent from "superagent";
 // yasqe.on("change", function() {
 // module.exports.appendPrefixIfNeeded(yasqe, completerName);
 // });
+const NAME = "prefixes";
 var conf: Autocompleter.CompleterConfig = {
+  onInitialize: function(yasqe) {
+    yasqe.on("change", function() {
+      if (!yasqe.config.autocompleters || yasqe.config.autocompleters.indexOf("prefixes") == -1) return; //this autocompleter is disabled
+      var cur = yasqe.getDoc().getCursor();
+
+      var token: Autocompleter.AutocompletionToken = yasqe.getTokenAt(cur);
+      if (tokenTypes[token.type] == "prefixed") {
+        var colonIndex = token.string.indexOf(":");
+        if (colonIndex !== -1) {
+          // check previous token isnt PREFIX, or a '<'(which would mean we are in a uri)
+          //			var firstTokenString = yasqe.getNextNonWsToken(cur.line).string.toUpperCase();
+          var lastNonWsTokenString = yasqe.getPreviousNonWsToken(cur.line, token).string.toUpperCase();
+          var previousToken = yasqe.getTokenAt({
+            line: cur.line,
+            ch: token.start
+          }); // needs to be null (beginning of line), or whitespace
+          if (lastNonWsTokenString != "PREFIX" && (previousToken.type == "ws" || previousToken.type == null)) {
+            // check whether it isnt defined already (saves us from looping
+            // through the array)
+            var currentPrefix = token.string.substring(0, colonIndex + 1);
+
+            var queryPrefixes = yasqe.getPrefixesFromQuery();
+            if (queryPrefixes[currentPrefix.slice(0, -1)] == null) {
+              // ok, so it isnt added yet!
+              // var completions = yasqe.autocompleters.getTrie(completerName).autoComplete(currentPrefix);
+              token.autocompletionString = currentPrefix;
+              var completions = yasqe.autocompleters[NAME].getCompletions(token).then(suggestions => {
+                if (suggestions.length) {
+                  console.warn("TODO: add prefixes to query", suggestions[0]);
+                  // yasqe.addPrefixes(completions[0]);
+                }
+              }, console.warn);
+            }
+          }
+        }
+      }
+    });
+  },
   isValidCompletionPosition: function(yasqe) {
     var cur = yasqe.getDoc().getCursor(),
       token = yasqe.getTokenAt(cur);
@@ -67,45 +106,8 @@ var conf: Autocompleter.CompleterConfig = {
   async: true,
   bulk: true,
   autoShow: true,
-  persistenceId: "prefixes"
+  persistenceId: NAME,
+  name: NAME
 };
 
-/**
- * Check whether typed prefix is declared. If not, automatically add declaration
- * using list from prefix.cc
- *
- * @param yasqe
- */
-// module.exports.appendPrefixIfNeeded = function(yasqe, completerName) {
-//   if (!yasqe.autocompleters.getTrie(completerName)) return; // no prefixed defined. just stop
-//   if (!yasqe.options.autocompleters || yasqe.options.autocompleters.indexOf(completerName) == -1) return; //this autocompleter is disabled
-//   var cur = yasqe.getCursor();
-//
-//   var token = yasqe.getTokenAt(cur);
-//   if (tokenTypes[token.type] == "prefixed") {
-//     var colonIndex = token.string.indexOf(":");
-//     if (colonIndex !== -1) {
-//       // check previous token isnt PREFIX, or a '<'(which would mean we are in a uri)
-//       //			var firstTokenString = yasqe.getNextNonWsToken(cur.line).string.toUpperCase();
-//       var lastNonWsTokenString = yasqe.getPreviousNonWsToken(cur.line, token).string.toUpperCase();
-//       var previousToken = yasqe.getTokenAt({
-//         line: cur.line,
-//         ch: token.start
-//       }); // needs to be null (beginning of line), or whitespace
-//       if (lastNonWsTokenString != "PREFIX" && (previousToken.type == "ws" || previousToken.type == null)) {
-//         // check whether it isnt defined already (saves us from looping
-//         // through the array)
-//         var currentPrefix = token.string.substring(0, colonIndex + 1);
-//         var queryPrefixes = yasqe.getPrefixesFromQuery();
-//         if (queryPrefixes[currentPrefix.slice(0, -1)] == null) {
-//           // ok, so it isnt added yet!
-//           var completions = yasqe.autocompleters.getTrie(completerName).autoComplete(currentPrefix);
-//           if (completions.length > 0) {
-//             yasqe.addPrefixes(completions[0]);
-//           }
-//         }
-//       }
-//     }
-//   }
-// };
 export default conf;
