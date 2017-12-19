@@ -12,6 +12,7 @@ require("codemirror/addon/display/fullscreen.js");
 require("codemirror/lib/codemirror.css");
 require("codemirror/addon/fold/foldgutter.css");
 require("codemirror/addon/display/fullscreen.css");
+require("codemirror/addon/hint/show-hint.css");
 require("./scss/codemirrorMods.scss");
 require("./scss/yasqe.scss");
 require("./scss/buttons.scss");
@@ -25,6 +26,7 @@ import { drawSvgStringAsElement } from "yasgui-utils/build";
 import * as Sparql from "./sparql";
 CodeMirror.defineMode("sparql11", sparql11Mode.default);
 import * as imgs from "./imgs";
+import * as Autocompleter from "./autocompleters";
 // export var
 import { merge } from "lodash";
 // @ts-ignore
@@ -44,6 +46,7 @@ interface Yasqe extends CodeMirror.Editor {
     eventName: "response",
     handler: (instance: Yasqe, req: superagent.SuperAgentRequest, duration: number) => void
   ): void;
+  showHint: (conf: Yasqe.HintConfig) => void;
   on(eventName: "error", handler: (instance: Yasqe, err: any) => void): void;
   off(eventName: "error", handler: (instance: Yasqe, err: any) => void): void;
   on(eventName: "queryResults", handler: (instance: Yasqe, results: any) => void, duration: number): void;
@@ -54,6 +57,7 @@ interface Yasqe extends CodeMirror.Editor {
 // var Yasqe = CodeMirror
 class Yasqe {
   private static storageNamespace = "triply";
+  public autocompleters: { [name: string]: Autocompleter.Completer } = {};
   private prevQueryValid = false;
   public queryValid = true;
   public lastQueryDuration: number;
@@ -82,6 +86,7 @@ class Yasqe {
       var valueFromStorage = this.storage.get<string>(storageId);
       if (valueFromStorage) this.setValue(valueFromStorage);
     }
+    this.config.autocompleters.forEach(c => this.enableCompleter(c).then(() => {}, console.warn));
 
     /**
      * Register listeners
@@ -99,6 +104,9 @@ class Yasqe {
       this.checkSyntax();
       this.updateQueryButton();
       // root.positionButtons(yasqe);
+    });
+    this.on("cursorActivity", () => {
+      this.autocomplete(true);
     });
 
     this.on("request", (yasqe, req) => {
@@ -130,13 +138,31 @@ class Yasqe {
         return "query";
     }
   }
+  static Autocompleters: { [name: string]: Autocompleter.CompleterConfig } = {};
+  static registerAutocompleter(name: string, value: Autocompleter.CompleterConfig, enable = true) {
+    Yasqe.Autocompleters[name] = value;
+    if (enable && Yasqe.defaults.autocompleters.indexOf(name) < 0) Yasqe.defaults.autocompleters.push(name);
+  }
 
-  // yasqe.autocompleters = require("./autocompleters/autocompleterBase.js")(root, yasqe);
-  // if (yasqe.options.autocompleters) {
-  //   yasqe.options.autocompleters.forEach(function(name) {
-  //     if (root.Autocompleters[name]) yasqe.autocompleters.init(name, root.Autocompleters[name]);
-  //   });
-  // }
+  enableCompleter(name: string): Promise<void> {
+    if (!Yasqe.Autocompleters[name])
+      return Promise.reject(new Error("Autocompleter " + name + " is not a registered autocompleter"));
+    if (this.config.autocompleters.indexOf(name) < 0) this.config.autocompleters.push(name);
+    this.autocompleters[name] = new Autocompleter.Completer(this, Yasqe.Autocompleters[name], name);
+    return this.autocompleters[name].populateCompletions();
+  }
+  disableCompleter(name: string) {
+    this.config.autocompleters = this.config.autocompleters.filter(a => a !== name);
+    this.autocompleters[name] = undefined;
+  }
+  autocomplete(fromAutoShow = false) {
+    if (this.getDoc().somethingSelected()) return;
+    for (let i in this.config.autocompleters) {
+      const completerName = this.config.autocompleters[i]
+      if (!this.autocompleters[completerName] || !this.autocompleters[completerName].autocomplete(fromAutoShow)) continue;
+    }
+  }
+
   emit(event: string, ...data: any[]) {
     CodeMirror.signal(this, event, this, ...data);
   }
@@ -239,7 +265,6 @@ class Yasqe {
   checkSyntax() {
     this.queryValid = true;
 
-    console.log("clear gutter");
     this.clearGutter("gutterErrorBar");
 
     var state: Yasqe.TokenizerState = null;
@@ -293,7 +318,6 @@ class Yasqe {
         // warningEl.style.marginTop = "2px";
         // warningEl.style.marginLeft = "2px";
         warningEl.className = "parseErrorIcon";
-        console.log("set gutter marker", l, warningEl);
         this.setGutterMarker(l, "gutterErrorBar", warningEl);
 
         this.queryValid = false;
@@ -301,13 +325,7 @@ class Yasqe {
       }
     }
   }
-  enableCompleter(name: string) {
-    // addCompleterToSettings(yasqe.options, name);
-    // if (root.Autocompleters[name]) yasqe.autocompleters.init(name, root.Autocompleters[name]);
-  }
-  disableCompleter(name: string) {
-    // removeCompleterFromSettings(yasqe.options, name);
-  }
+
   public getStorageId(getter?: Yasqe.Config["persistenceId"]) {
     const persistenceId = getter || this.config.persistenceId;
     if (!persistenceId) return undefined;
@@ -423,19 +441,13 @@ class Yasqe {
     const toggleFullscreenBtn = drawSvgStringAsElement(imgs.fullscreen);
     toggleFullscreenBtn.className = "yasqe_fullscreenBtn";
     toggleFullscreenBtn.title = "Set editor full screen";
-    toggleFullscreenBtn.onclick = () => {
-      this.setOption("fullScreen", true);
-      this.emit("fullscreen-enter");
-    };
+    toggleFullscreenBtn.onclick = () => this.setFullscreen(true);
     toggleFullscreen.appendChild(toggleFullscreenBtn);
 
     const toggleSmallScreenBtn = drawSvgStringAsElement(imgs.smallscreen);
     toggleSmallScreenBtn.className = "yasqe_smallscreenBtn";
     toggleSmallScreenBtn.title = "Set editor normal size";
-    toggleSmallScreenBtn.onclick = () => {
-      this.setOption("fullScreen", false);
-      this.emit("fullscreen-leave");
-    };
+    toggleSmallScreenBtn.onclick = () => this.setFullscreen(false);
     toggleFullscreen.appendChild(toggleSmallScreenBtn);
     buttons.appendChild(toggleFullscreen);
 
@@ -473,6 +485,15 @@ class Yasqe {
       };
       buttons.appendChild(this.queryBtn);
       this.updateQueryButton();
+    }
+  }
+  setFullscreen(fullscreen = true) {
+    if (fullscreen) {
+      this.setOption("fullScreen", true);
+      this.emit("fullscreen-enter");
+    } else {
+      this.setOption("fullScreen", false);
+      this.emit("fullscreen-leave");
     }
   }
   updateQueryButton(status?: "valid" | "error") {
@@ -536,14 +557,10 @@ namespace Yasqe {
   export var defaults: Yasqe.Config = getDefaults(Yasqe);
   export type TokenizerState = sparql11Mode.State;
   export type Position = CodeMirror.Position;
-  export interface Hint {
-    text: string;
-    displayText?: string;
-    className?: string;
-    render?: (el: HTMLElement, self: Hint, data: any) => void;
-    hint?: (cm: Yasqe, options: HintFnConfig) => Promise<Hint>;
-    from?: Yasqe.Position;
-    to?: Yasqe.Position;
+  export interface HintList {
+    list: Hint[];
+    from: Yasqe.Position;
+    to: Yasqe.Position;
 
     // text: string
     //     The completion text. This is the only required property.
@@ -561,14 +578,22 @@ namespace Yasqe {
     //     Optional to position that will be used by pick() instead of the global one passed with the full list of completions.
     //
   }
-  export interface HintFnConfig {
+  export interface Hint {
+    text: string;
+    displayText?: string;
+    className?: string;
+    render?: (el: HTMLElement, self: Hint, data: any) => void;
+    from?: Yasqe.Position;
+    to?: Yasqe.Position;
+  }
+  export type HintFn = { async?: boolean } & (() => Promise<HintList> | HintList);
+  export interface HintConfig {
     completeOnSingleClick?: boolean;
     container?: HTMLElement;
     closeCharacters?: RegExp;
     completeSingle?: boolean;
-    async?: boolean;
     // A hinting function, as specified above. It is possible to set the async property on a hinting function to true, in which case it will be called with arguments (cm, callback, ?options), and the completion interface will only be popped up when the hinting function calls the callback, passing it the object holding the completions. The hinting function can also return a promise, and the completion interface will only be popped when the promise resolves. By default, hinting only works when there is no selection. You can give a hinting function a supportsSelection property with a truthy value to indicate that it supports selections.
-    hint?: any;
+    hint: HintFn;
 
     // Whether the pop-up should be horizontally aligned with the start of the word (true, default), or with the cursor (false).
     alignWithWord?: boolean;
@@ -630,5 +655,5 @@ namespace Yasqe {
   //add missing static functions, added by e.g. addons
   // declare function runMode(text:string, mode:any, out:any):void
 }
-
+Yasqe.registerAutocompleter("variables", Autocompleter.variables);
 export = Yasqe;

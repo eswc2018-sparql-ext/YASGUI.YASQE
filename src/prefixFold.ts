@@ -7,17 +7,14 @@ export function findFirstPrefixLine(yasqe:Yasqe) {
   var lastLine = yasqe.getDoc().lastLine();
   for (var i = 0; i <= lastLine; ++i) {
     if (findFirstPrefix(yasqe, i) >= 0) {
-      console.log(i)
       return i;
     }
   }
 }
 
 export function findFirstPrefix(yasqe:Yasqe, line:number, ch = 0, lineText?:string) {
-  console.log('find first prefix')
   if (!lineText) lineText = yasqe.getDoc().getLine(line);
   lineText = lineText.toUpperCase();
-  console.log(lineText)
   for (var at = ch, pass = 0; ; ) {
     var found = lineText.indexOf(lookFor, at);
     if (found == -1) {
@@ -28,7 +25,6 @@ export function findFirstPrefix(yasqe:Yasqe, line:number, ch = 0, lineText?:stri
       continue;
     }
     if (pass == 1 && found < ch) break;
-    // console.log(yasqe.getDoc())
 
     var tokenType = yasqe.getTokenTypeAt(CodeMirror.Pos(line, found + 1));
     if (!/^(comment|string)/.test(tokenType)) return found + 1;

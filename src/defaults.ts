@@ -29,16 +29,11 @@ SELECT * WHERE {
     matchBrackets: true,
     fixedGutter: true,
     syntaxErrorCheck: true,
-    /**
-     * Extra shortcut keys. Check the CodeMirror manual on how to add your own
-     *
-     * @property extraKeys
-     * @type object
-     */
-    // extraKeys: {
-    //   //					"Ctrl-Space" : function(yasqe) {
-    //   //						YASQE.autoComplete(yasqe);
-    //   //					},
+    autocompleters: [],
+    extraKeys: {
+      					"Ctrl-Space" : function(yasqe:_Yasqe) {
+      						yasqe.autocomplete();
+      					},
     //   "Ctrl-Space": YASQE.autoComplete,
     //
     //   "Cmd-Space": YASQE.autoComplete,
@@ -61,15 +56,14 @@ SELECT * WHERE {
     //   "Cmd-[": YASQE.indentLess,
     //   "Ctrl-S": YASQE.storeQuery,
     //   "Cmd-S": YASQE.storeQuery,
-    //   "Ctrl-Enter": YASQE.executeQuery,
-    //   "Cmd-Enter": YASQE.executeQuery,
-    //   F11: function(yasqe) {
-    //     yasqe.setOption("fullScreen", !yasqe.getOption("fullScreen"));
-    //   },
-    //   Esc: function(yasqe) {
-    //     if (yasqe.getOption("fullScreen")) yasqe.setOption("fullScreen", false);
-    //   }
-    // },
+      // "Ctrl-Enter": YASQE.executeQuery,
+      F11: function(yasqe:_Yasqe) {
+        yasqe.setFullscreen(true)
+      },
+      Esc: function(yasqe:_Yasqe) {
+        yasqe.setFullscreen(false)
+      }
+    },
     // cursorHeight: 0.9,
 
     createShareLink: function(yasqe:_Yasqe) {

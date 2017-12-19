@@ -10,7 +10,9 @@ span.shortlinkErr {
 .CodeMirror-fullscreen {
   z-index: 1100; //this way, we're higher than the leaflet z-index used in YASR (1000)
 }
-
+.CodeMirror-hint {
+	max-width: 30em;
+}
 .completionNotification {
   color: #999;
   background-color: #f7f7f7;
