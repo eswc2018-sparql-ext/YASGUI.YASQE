@@ -655,5 +655,6 @@ namespace Yasqe {
   //add missing static functions, added by e.g. addons
   // declare function runMode(text:string, mode:any, out:any):void
 }
-Yasqe.registerAutocompleter("variables", Autocompleter.variables);
+Yasqe.registerAutocompleter("variables", Autocompleter.variableCompleter);
+Yasqe.registerAutocompleter("prefixes", Autocompleter.prefixCompleter);
 export = Yasqe;

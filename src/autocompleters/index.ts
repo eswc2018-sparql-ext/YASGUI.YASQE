@@ -257,7 +257,8 @@ export class Completer extends EventEmitter {
   }
 }
 
-export { default as variables } from "./variables";
+export { default as variableCompleter } from "./variables";
+export { default as prefixCompleter } from "./prefixes";
 // var needPossibleAdjustment = [];
 // for (var notificationName in completionNotifications) {
 //   if (completionNotifications[notificationName].is(":visible")) {
