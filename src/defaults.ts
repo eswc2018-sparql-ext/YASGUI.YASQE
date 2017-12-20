@@ -113,7 +113,7 @@ SELECT * WHERE {
       defaultGraphs: [],
       args: [],
       headers: {},
-
+      withCredentials: false,
       getQueryForAjax: null
     }
   };

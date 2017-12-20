@@ -520,14 +520,10 @@ class Yasqe {
       queryEl.className = queryEl.className + " queryIcon";
       this.queryBtn.appendChild(queryEl);
 
-      //todo: add warning icon
       const warningIcon = drawSvgStringAsElement(imgs.warning);
       warningIcon.className = warningIcon.className + " warningIcon";
       this.queryBtn.appendChild(warningIcon);
 
-      // const loaderEl = drawSvgStringAsElement(imgs.query);
-      // loaderEl.className = loaderEl.className + ' loadingIcon';
-      // this.queryBtn.appendChild(loaderEl);
 
       this.queryBtn.onclick = () => {
         if (this.req) {
@@ -679,7 +675,7 @@ namespace Yasqe {
       args?: string[];
       headers?: { [key: string]: string };
       getQueryForAjax?: (yasqe: Yasqe) => string;
-      xhrFields?: { [key: string]: any };
+      withCredentials?: boolean
     };
     //Addon specific addon ts defs, or missing props from codemirror conf
     highlightSelectionMatches?: { showToken?: RegExp; annotateScrollbar?: boolean };

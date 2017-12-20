@@ -9,6 +9,7 @@ export interface PopulatedAjaxConfig {
   headers: {[key:string]:string},
   accept: string,
   args: RequestArgs
+  withCredentials:boolean
 
 }
 // type callback = AjaxConfig.callbacks['complete'];
@@ -25,16 +26,14 @@ export function getAjaxConfig(yasqe:Yasqe, config:YasqeAjaxConfig = {}):Populate
     ? "POST"
     : typeof config.requestMethod == "function" ? config.requestMethod(yasqe) : config.requestMethod;
 
-  //TODO: set xhr fields
-
-  // if (config.xhrFields) ajaxConfig.xhrFields = config.xhrFields;
 
   return {
     reqMethod,
     url: endpoint,
     args: getUrlArguments(yasqe,config),
     headers: config.headers,
-    accept: getAcceptHeader(yasqe, config)
+    accept: getAcceptHeader(yasqe, config),
+    withCredentials:config.withCredentials
   }
   /**
 	 * merge additional request headers
@@ -46,19 +45,7 @@ export function getAjaxConfig(yasqe:Yasqe, config:YasqeAjaxConfig = {}):Populate
 export function executeQuery(yasqe:Yasqe,config?: YasqeAjaxConfig ):Promise<any> {
   const populatedConfig = getAjaxConfig(yasqe,config);
   var queryStart = Date.now();
-  // function updateYasqeOnFinish() {
-  //   yasqe.lastQueryDuration = Date.now() - queryStart;
-  //   yasqe.updateQueryButton();
-  // };
-  // //Make sure the query button is updated again on complete
-  // var completeCallbacks = [
-  //   function() {
-  //     require("./main.js").signal(yasqe, "queryFinish", arguments);
-  //   },
-  //   updateYasqeOnFinish
-  // ];
-  // ajaxConfig.complete = completeCallbacks;
-  // return ajaxConfig;
+
 
   var req:superagent.SuperAgentRequest;
   if (populatedConfig.reqMethod==='POST') {
@@ -71,6 +58,7 @@ export function executeQuery(yasqe:Yasqe,config?: YasqeAjaxConfig ):Promise<any>
   }
   req.accept(populatedConfig.accept);
   req.set(populatedConfig.headers)
+  if (populatedConfig.withCredentials) req.withCredentials();
   yasqe.emit("request", req,populatedConfig);
   return req.then((result) => {
     yasqe.emit('response', result, Date.now() - queryStart)
