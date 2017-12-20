@@ -6,7 +6,7 @@
  */
 import * as _Yasqe from "./";
 import * as CodeMirror from "codemirror";
-import * as queryString from 'query-string'
+import * as queryString from "query-string";
 //need to pass Yasqe object as argument, as the imported version might not have inherited all (e.g. `fold`) props of Codemirror yet
 export default function get(Yasqe: typeof _Yasqe): _Yasqe.Config {
   return {
@@ -33,15 +33,18 @@ SELECT * WHERE {
     autocompleters: [],
     extraKeys: {
       "Ctrl-Space": function(yasqe: _Yasqe) {
-
         yasqe.autocomplete();
       },
       //   "Ctrl-Space": YASQE.autoComplete,
       //
       //   "Cmd-Space": YASQE.autoComplete,
-      //   "Ctrl-D": YASQE.deleteLine,
-      //   "Ctrl-K": YASQE.deleteLine,
-      //   "Shift-Ctrl-K": YASQE.deleteLine,
+      // "Ctrl-d": function(yasqe: _Yasqe) {
+      //
+      //   return yasqe.getDoc().removeLine(yasqe.getDoc().getCursor().line);
+      // },
+      "Shift-Ctrl-K": function(yasqe: _Yasqe) {
+        return yasqe.getDoc().removeLine(yasqe.getDoc().getCursor().line);
+      },
       //   "Cmd-D": YASQE.deleteLine,
       //   "Cmd-K": YASQE.deleteLine,
       //   "Ctrl-/": YASQE.commentLines,
@@ -50,15 +53,20 @@ SELECT * WHERE {
       //   "Ctrl-Alt-Up": YASQE.copyLineUp,
       //   "Cmd-Alt-Down": YASQE.copyLineDown,
       //   "Cmd-Alt-Up": YASQE.copyLineUp,
-      //   "Shift-Ctrl-F": YASQE.doAutoFormat,
-      //   "Shift-Cmd-F": YASQE.doAutoFormat,
+
+        "Shift-Ctrl-F": function(yasqe:_Yasqe) {
+          yasqe.autoformat();
+        },
       //   "Ctrl-]": YASQE.indentMore,
       //   "Cmd-]": YASQE.indentMore,
       //   "Ctrl-[": YASQE.indentLess,
       //   "Cmd-[": YASQE.indentLess,
-      //   "Ctrl-S": YASQE.storeQuery,
-      //   "Cmd-S": YASQE.storeQuery,
-      // "Ctrl-Enter": YASQE.executeQuery,
+        "Ctrl-S": function(yasqe:_Yasqe) {
+        yasqe.saveQuery()
+      },
+      "Ctrl-Enter": function(yasqe: _Yasqe) {
+        return yasqe.query();
+      },
       F11: function(yasqe: _Yasqe) {
         yasqe.setFullscreen(true);
       },
@@ -69,17 +77,20 @@ SELECT * WHERE {
     // cursorHeight: 0.9,
 
     createShareLink: function(yasqe: _Yasqe) {
-      return document.location.protocol +
-      "//" +
-      document.location.host +
-      document.location.pathname +
-      document.location.search +
-      "#" + queryString.stringify(yasqe.configToQueryParams());
+      return (
+        document.location.protocol +
+        "//" +
+        document.location.host +
+        document.location.pathname +
+        document.location.search +
+        "#" +
+        queryString.stringify(yasqe.configToQueryParams())
+      );
     },
 
     createShortLink: null,
 
-    consumeShareLink: function(yasqe:_Yasqe) {
+    consumeShareLink: function(yasqe: _Yasqe) {
       yasqe.queryParamsToConfig(yasqe.getUrlParams());
     },
     persistenceId: function(yasqe: _Yasqe) {

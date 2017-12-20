@@ -18,19 +18,19 @@ require("./scss/yasqe.scss");
 require("./scss/buttons.scss");
 import * as superagent from "superagent";
 import { default as prefixFold, findFirstPrefixLine } from "./prefixFold";
-import { getPrefixesFromQuery, addPrefixes,  removePrefixes, Prefixes } from "./prefixUtils";
+import { getPrefixesFromQuery, addPrefixes, removePrefixes, Prefixes } from "./prefixUtils";
 import { getPreviousNonWsToken, getNextNonWsToken, getCompleteToken } from "./tokenUtils";
 import * as sparql11Mode from "../grammar/tokenizer";
 import YStorage from "yasgui-utils/build/Storage";
-import * as queryString from 'query-string'
-import tooltip from './tooltip'
+import * as queryString from "query-string";
+import tooltip from "./tooltip";
 import { drawSvgStringAsElement } from "yasgui-utils/build";
 import * as Sparql from "./sparql";
 CodeMirror.defineMode("sparql11", sparql11Mode.default);
 import * as imgs from "./imgs";
 import * as Autocompleter from "./autocompleters";
 // export var
-import { merge,escape } from "lodash";
+import { merge, escape } from "lodash";
 // @ts-ignore
 // var Yasqe = CodeMirror
 
@@ -91,11 +91,10 @@ class Yasqe {
     }
     this.config.autocompleters.forEach(c => this.enableCompleter(c).then(() => {}, console.warn));
 
-
     if (this.config.consumeShareLink) {
       this.config.consumeShareLink(this);
       //and: add a hash listener!
-      window.addEventListener("hashchange", ()=> {
+      window.addEventListener("hashchange", () => {
         this.config.consumeShareLink(this);
       });
     }
@@ -273,7 +272,13 @@ class Yasqe {
     var newQuery = "";
     var injected = false;
     var gotSelect = false;
-    (<any>Yasqe).runMode(this.getValue(), "sparql11", function(stringVal:string, className:string, row:number, col:number, state:Yasqe.TokenizerState) {
+    (<any>Yasqe).runMode(this.getValue(), "sparql11", function(
+      stringVal: string,
+      className: string,
+      row: number,
+      col: number,
+      state: Yasqe.TokenizerState
+    ) {
       if (className === "keyword" && stringVal.toLowerCase() === "select") gotSelect = true;
       newQuery += stringVal;
       if (gotSelect && !injected && className === "punc" && stringVal === "{") {
@@ -287,13 +292,13 @@ class Yasqe {
 
   getValueWithoutComments() {
     var cleanedQuery = "";
-    (<any>Yasqe).runMode(this.getValue(), "sparql11", function(stringVal:string, className:string) {
+    (<any>Yasqe).runMode(this.getValue(), "sparql11", function(stringVal: string, className: string) {
       if (className != "comment") {
         cleanedQuery += stringVal;
       }
     });
     return cleanedQuery;
-  };
+  }
 
   setCheckSyntaxErrors(isEnabled: boolean) {
     this.config.syntaxErrorCheck = isEnabled;
@@ -336,17 +341,13 @@ class Yasqe {
         }
         const warningEl = drawSvgStringAsElement(imgs.warning);
         if (state.errorMsg) {
-          tooltip(this, warningEl, escape(token.state.errorMsg))
+          tooltip(this, warningEl, escape(token.state.errorMsg));
         } else if (state.possibleCurrent && state.possibleCurrent.length > 0) {
-
-
-          var expectedEncoded:string[] = [];
+          var expectedEncoded: string[] = [];
           state.possibleCurrent.forEach(function(expected) {
-            expectedEncoded.push(
-              "<strong style='text-decoration:underline'>" + escape(expected) + "</strong>"
-            );
+            expectedEncoded.push("<strong style='text-decoration:underline'>" + escape(expected) + "</strong>");
           });
-          tooltip(this, warningEl, "This line is invalid. Expected: " + expectedEncoded.join(", "))
+          tooltip(this, warningEl, "This line is invalid. Expected: " + expectedEncoded.join(", "));
         }
         // warningEl.style.marginTop = "2px";
         // warningEl.style.marginLeft = "2px";
@@ -366,9 +367,89 @@ class Yasqe {
     return persistenceId(this);
   }
 
+  private autoformatSelection(start: number, end: number): string {
+    var text = this.getValue();
+    text = text.substring(start, end);
+    var breakAfterArray = [
+      ["keyword", "ws", "prefixed", "ws", "uri"], // i.e. prefix declaration
+      ["keyword", "ws", "uri"] // i.e. base
+    ];
+    var breakAfterCharacters = ["{", ".", ";"];
+    var breakBeforeCharacters = ["}"];
+
+    var getBreakType = function(stringVal: string, type: string) {
+      for (var i = 0; i < breakAfterArray.length; i++) {
+        if (stackTrace.valueOf().toString() == breakAfterArray[i].valueOf().toString()) {
+          return 1;
+        }
+      }
+      for (var i = 0; i < breakAfterCharacters.length; i++) {
+        if (stringVal == breakAfterCharacters[i]) {
+          return 1;
+        }
+      }
+      for (var i = 0; i < breakBeforeCharacters.length; i++) {
+        // don't want to issue 'breakbefore' AND 'breakafter', so check
+        // current line
+        if (currentLine.trim() !== "" && stringVal == breakBeforeCharacters[i]) {
+          return -1;
+        }
+      }
+      return 0;
+    };
+    var formattedQuery = "";
+    var currentLine = "";
+    var stackTrace: string[] = [];
+    console.log(Yasqe);
+    (<any>Yasqe).runMode(text, "sparql11", function(stringVal: string, type: string) {
+      stackTrace.push(type);
+      var breakType = getBreakType(stringVal, type);
+      if (breakType != 0) {
+        if (breakType == 1) {
+          formattedQuery += stringVal + "\n";
+          currentLine = "";
+        } else {
+          // (-1)
+          formattedQuery += "\n" + stringVal;
+          currentLine = stringVal;
+        }
+        stackTrace = [];
+      } else {
+        currentLine += stringVal;
+        formattedQuery += stringVal;
+      }
+      if (stackTrace.length == 1 && stackTrace[0] == "sp-ws") stackTrace = [];
+    });
+    return formattedQuery.replace(/\n\s*\n/g, "\n").trim();
+  }
+  public autoformat() {
+    if (!this.getDoc().somethingSelected()) this.execCommand("selectAll");
+    const from = this.getDoc().getCursor("start");
+
+    var to: Yasqe.Position = {
+      line: this.getDoc().getCursor("end").line,
+      ch: this.getDoc().getSelection().length
+    };
+    var absStart = this.getDoc().indexFromPos(from);
+    var absEnd = this.getDoc().indexFromPos(to);
+    // Insert additional line breaks where necessary according to the
+    // mode's syntax
+
+    const res = this.autoformatSelection(absStart, absEnd);
+
+    // Replace and auto-indent the range
+    this.operation(() => {
+      this.getDoc().replaceRange(res, from, to);
+      var startLine = this.getDoc().posFromIndex(absStart).line;
+      var endLine = this.getDoc().posFromIndex(absStart + res.length).line;
+      for (var i = startLine; i <= endLine; i++) {
+        this.indentLine(i, "smart");
+      }
+    });
+  }
   public getUrlParams() {
     //first try hash
-    var urlParams:{[key:string]:string} = null;
+    var urlParams: { [key: string]: string } = null;
     if (window.location.hash.length > 1) {
       //firefox does some decoding if we're using window.location.hash (e.g. the + sign in contentType settings)
       //Don't want this. So simply get the hash string ourselves
@@ -379,17 +460,17 @@ class Yasqe {
       urlParams = queryString.parse(window.location.search.substring(1));
     }
     return urlParams;
-  };
+  }
   configToQueryParams() {
     //extend existing link, so first fetch current arguments
-    var urlParams:{[key:string]:string} = {};
-    if (window.location.hash.length > 1) urlParams = queryString.parse(window.location.hash)
+    var urlParams: { [key: string]: string } = {};
+    if (window.location.hash.length > 1) urlParams = queryString.parse(window.location.hash);
     urlParams["query"] = this.getValue();
     return urlParams;
-  };
-  queryParamsToConfig(params:{[key:string]:string}) {
+  }
+  queryParamsToConfig(params: { [key: string]: string }) {
     if (params && params.query) {
-      this.setValue(params.query)
+      this.setValue(params.query);
     }
   }
 
@@ -416,7 +497,7 @@ class Yasqe {
         buttons.appendChild(popup);
         document.body.addEventListener(
           "click",
-          (event) => {
+          event => {
             if (popup && event.target !== popup && !popup.contains(<any>event.target)) {
               popup.remove();
               popup = undefined;
@@ -426,7 +507,7 @@ class Yasqe {
         );
         var input = document.createElement("input");
         input.type = "text";
-        input.value =this.config.createShareLink(this)
+        input.value = this.config.createShareLink(this);
 
         input.onfocus = function() {
           input.select();
@@ -450,7 +531,7 @@ class Yasqe {
           const shortBtn = document.createElement("button");
           shortBtn.innerHTML = "Shorten";
           shortBtn.className = "yasqe_btn yasqe_btn-sm shorten";
-          popup.appendChild(shortBtn)
+          popup.appendChild(shortBtn);
           shortBtn.onclick = () => {
             shortBtn.disabled = true;
             this.config.createShortLink(this, input.value).then(
@@ -469,9 +550,9 @@ class Yasqe {
         }
 
         const curlBtn = document.createElement("button");
-        curlBtn.innerText = 'CURL'
+        curlBtn.innerText = "CURL";
         curlBtn.className = "yasqe_btn yasqe_btn-sm curl";
-        popup.appendChild(curlBtn)
+        popup.appendChild(curlBtn);
         curlBtn.onclick = () => {
           curlBtn.disabled = true;
 
@@ -523,7 +604,6 @@ class Yasqe {
       const warningIcon = drawSvgStringAsElement(imgs.warning);
       warningIcon.className = warningIcon.className + " warningIcon";
       this.queryBtn.appendChild(warningIcon);
-
 
       this.queryBtn.onclick = () => {
         if (this.req) {
@@ -581,6 +661,7 @@ class Yasqe {
     console.warn("Localstorage quota exceeded. Clearing all queries");
     Yasqe.clearStorage();
   }
+  static runMode = (<any>CodeMirror).runMode
   saveQuery() {
     this.storage.set(
       this.getStorageId(),
@@ -651,7 +732,7 @@ namespace Yasqe {
      */
     createShareLink?: (yasqe: Yasqe) => string;
     createShortLink?: (yasqe: Yasqe, longLink: string) => Promise<string>;
-    consumeShareLink?: (yasqe:Yasqe) => void;
+    consumeShareLink?: (yasqe: Yasqe) => void;
     /**
      * Change persistency settings for the YASQE query value. Setting the values
      * to null, will disable persistancy: nothing is stored between browser
@@ -675,7 +756,7 @@ namespace Yasqe {
       args?: string[];
       headers?: { [key: string]: string };
       getQueryForAjax?: (yasqe: Yasqe) => string;
-      withCredentials?: boolean
+      withCredentials?: boolean;
     };
     //Addon specific addon ts defs, or missing props from codemirror conf
     highlightSelectionMatches?: { showToken?: RegExp; annotateScrollbar?: boolean };
