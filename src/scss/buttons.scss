@@ -13,13 +13,8 @@ $queryButtonHeight: 40px;
   cursor: pointer;
   white-space: nowrap;
   padding: 6px 12px;
-  border-radius: 4px;
-  -webkit-user-select: none;
-  -moz-user-select: none;
-  -ms-user-select: none;
+  border-radius: 2px;
   user-select: none;
-  -webkit-appearance: button;
-  /* margin: 0; */
   overflow: visible;
   box-sizing: border-box;
   &.btn_icon {
@@ -30,7 +25,6 @@ $queryButtonHeight: 40px;
     cursor: default;
     opacity: 0.5;
     filter: alpha(opacity=50);
-    -webkit-box-shadow: none;
     box-shadow: none;
   }
   &:hover {
@@ -83,8 +77,7 @@ $queryButtonHeight: 40px;
       margin-left: 0px;
       background-color: #fff;
       border: 1px solid #e3e3e3;
-      border-radius: 4px;
-      -webkit-box-shadow: inset 0 1px 1px rgba(0, 0, 0, 0.05);
+      border-radius: 2px;
       box-shadow: inset 0 1px 1px rgba(0, 0, 0, 0.05);
       width: 600px;
       height: auto;

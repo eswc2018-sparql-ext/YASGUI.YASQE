@@ -44,6 +44,7 @@
     "@types/es6-promise": "0.0.33",
     "@types/lodash": "^4.14.91",
     "@types/node": "^8.5.1",
+    "@types/query-string": "^5.0.1",
     "@types/superagent": "^3.5.6",
     "codemirror": "^5.32.0",
     "css-loader": "^0.28.7",
@@ -51,6 +52,7 @@
     "postcss-loader": "^2.0.9",
     "postcss-scopify": "^0.1.9",
     "prettier": "^1.4.4",
+    "query-string": "^5.0.1",
     "superagent": "^3.8.2",
     "yasgui-utils": "^2.0.7"
   },

@@ -1,5 +1,5 @@
 import * as Yasqe from './'
-export type Prefixes = {[prefLabel:string]:string};
+export type Prefixes = {[prefixLabel:string]:string};
 export function addPrefixes(yasqe:Yasqe, prefixes:string |Prefixes) {
   var existingPrefixes = yasqe.getPrefixesFromQuery();
   //for backwards compatability, we stil support prefixes value as string (e.g. 'rdf: <http://fbfgfgf>'

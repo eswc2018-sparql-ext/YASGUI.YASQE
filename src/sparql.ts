@@ -1,6 +1,7 @@
 import * as Yasqe from './';
 import * as superagent from 'superagent';
 import {merge} from 'lodash'
+import * as queryString from 'query-string'
 export type YasqeAjaxConfig = Yasqe.Config['sparql']
 export interface PopulatedAjaxConfig {
   url: string,
@@ -133,3 +134,27 @@ export function getAcceptHeader(yasqe:Yasqe, config:YasqeAjaxConfig) {
   }
   return acceptHeader;
 };
+export function getAsCurlString(yasqe:Yasqe, config:YasqeAjaxConfig) {
+  var ajaxConfig = getAjaxConfig(yasqe, config);
+  var url = ajaxConfig.url;
+  if (ajaxConfig.url.indexOf("http") !== 0) {
+    //this is either a relative or absolute url, which is not supported by CURL.
+    //Add domain, schema, etc etc
+    var url = window.location.protocol + "//" + window.location.host;
+    if (ajaxConfig.url.indexOf("/") === 0) {
+      //its an absolute path
+      url += ajaxConfig.url;
+    } else {
+      //relative, so append current location to url first
+      url += window.location.pathname + ajaxConfig.url;
+    }
+  }
+  var cmds:string[] = ["curl", url, "-X", yasqe.config.sparql.requestMethod];
+  if (yasqe.config.sparql.requestMethod == "POST") {
+    cmds.push(`--data '${queryString.stringify(ajaxConfig.args)}'`);
+  }
+  for (var header in ajaxConfig.headers) {
+    cmds.push(`-H  '${header} : ${ajaxConfig.headers[header]}'`);
+  }
+  return cmds.join(" ");
+}

@@ -18,10 +18,11 @@ require("./scss/yasqe.scss");
 require("./scss/buttons.scss");
 import * as superagent from "superagent";
 import { default as prefixFold, findFirstPrefixLine } from "./prefixFold";
-import { getPrefixesFromQuery, addPrefixes, addPrefixAsString, removePrefixes, Prefixes } from "./prefixUtils";
+import { getPrefixesFromQuery, addPrefixes,  removePrefixes, Prefixes } from "./prefixUtils";
 import { getPreviousNonWsToken, getNextNonWsToken, getCompleteToken } from "./tokenUtils";
 import * as sparql11Mode from "../grammar/tokenizer";
 import YStorage from "yasgui-utils/build/Storage";
+import * as queryString from 'query-string'
 import { drawSvgStringAsElement } from "yasgui-utils/build";
 import * as Sparql from "./sparql";
 CodeMirror.defineMode("sparql11", sparql11Mode.default);
@@ -89,6 +90,14 @@ class Yasqe {
     }
     this.config.autocompleters.forEach(c => this.enableCompleter(c).then(() => {}, console.warn));
 
+
+    if (this.config.consumeShareLink) {
+      this.config.consumeShareLink(this);
+      //and: add a hash listener!
+      window.addEventListener("hashchange", ()=> {
+        this.config.consumeShareLink(this);
+      });
+    }
     /**
      * Register listeners
      */
@@ -358,6 +367,37 @@ class Yasqe {
     if (typeof persistenceId === "string") return persistenceId;
     return persistenceId(this);
   }
+
+  public getUrlParams() {
+    //first try hash
+    var urlParams:{[key:string]:string} = null;
+    if (window.location.hash.length > 1) {
+      //firefox does some decoding if we're using window.location.hash (e.g. the + sign in contentType settings)
+      //Don't want this. So simply get the hash string ourselves
+      urlParams = queryString.parse(location.href.split("#")[1]);
+    }
+    if ((!urlParams || !("query" in urlParams)) && window.location.search.length > 1) {
+      //ok, then just try regular url params
+      urlParams = queryString.parse(window.location.search.substring(1));
+    }
+    return urlParams;
+  };
+  configToQueryParams() {
+    //extend existing link, so first fetch current arguments
+    var urlParams:{[key:string]:string} = {};
+    if (window.location.hash.length > 1) urlParams = queryString.parse(window.location.hash)
+    urlParams["query"] = this.getValue();
+    return urlParams;
+  };
+  queryParamsToConfig(params:{[key:string]:string}) {
+    if (params && params.query) {
+      this.setValue(params.query)
+    }
+  }
+
+  getAsCurlString(config?: Sparql.YasqeAjaxConfig) {
+    return Sparql.getAsCurlString(this, config);
+  }
   drawButtons() {
     const buttons = document.createElement("div");
     buttons.className = "yasqe_buttons";
@@ -375,31 +415,20 @@ class Yasqe {
         event.stopPropagation();
         var popup = document.createElement("div");
         popup.className = "yasqe_sharePopup";
-        popup.onclick = function(event) {
-          event.stopPropagation();
-        };
         buttons.appendChild(popup);
         document.body.addEventListener(
           "click",
-          () => {
-            if (popup) {
-              // popup.remove();
-              // popup = undefined;
+          (event) => {
+            if (popup && event.target !== popup && !popup.contains(<any>event.target)) {
+              popup.remove();
+              popup = undefined;
             }
           },
           true
         );
         var input = document.createElement("input");
         input.type = "text";
-        input.value =
-          document.location.protocol +
-          "//" +
-          document.location.host +
-          document.location.pathname +
-          document.location.search +
-          "#";
-        console.info("TODO: create actual share link");
-        // $.param(yasqe.options.createShareLink(yasqe))
+        input.value =this.config.createShareLink(this)
 
         input.onfocus = function() {
           input.select();
@@ -423,6 +452,7 @@ class Yasqe {
           const shortBtn = document.createElement("button");
           shortBtn.innerHTML = "Shorten";
           shortBtn.className = "yasqe_btn yasqe_btn-sm shorten";
+          popup.appendChild(shortBtn)
           shortBtn.onclick = () => {
             shortBtn.disabled = true;
             this.config.createShortLink(this, input.value).then(
@@ -441,12 +471,13 @@ class Yasqe {
         }
 
         const curlBtn = document.createElement("button");
+        curlBtn.innerText = 'CURL'
         curlBtn.className = "yasqe_btn yasqe_btn-sm curl";
+        popup.appendChild(curlBtn)
         curlBtn.onclick = () => {
           curlBtn.disabled = true;
 
-          // input.value = this.getAsCurl();
-          input.value = "TODO getAsCurl";
+          input.value = this.getAsCurlString();
           input.focus();
           popup.appendChild(curlBtn);
         };
@@ -501,7 +532,6 @@ class Yasqe {
       // this.queryBtn.appendChild(loaderEl);
 
       this.queryBtn.onclick = () => {
-        console.warn("TODO: check whether query is busy, and abort request");
         if (this.req) {
           this.req.abort();
           this.updateQueryButton();
@@ -588,22 +618,6 @@ namespace Yasqe {
     list: Hint[];
     from: Yasqe.Position;
     to: Yasqe.Position;
-
-    // text: string
-    //     The completion text. This is the only required property.
-    // displayText: string
-    //     The text that should be displayed in the menu.
-    // className: string
-    //     A CSS class name to apply to the completion's line in the menu.
-    // render: fn(Element, self, data)
-    //     A method used to create the DOM structure for showing the completion by appending it to its first argument.
-    // hint: fn(CodeMirror, self, data)
-    //     A method used to actually apply the completion, instead of the default behavior.
-    // from: {line, ch}
-    //     Optional from position that will be used by pick() instead of the global one passed with the full list of completions.
-    // to: {line, ch}
-    //     Optional to position that will be used by pick() instead of the global one passed with the full list of completions.
-    //
   }
   export interface Hint {
     text: string;
@@ -643,7 +657,7 @@ namespace Yasqe {
      */
     createShareLink?: (yasqe: Yasqe) => string;
     createShortLink?: (yasqe: Yasqe, longLink: string) => Promise<string>;
-    consumeShareLink?: (todo: number) => number;
+    consumeShareLink?: (yasqe:Yasqe) => void;
     /**
      * Change persistency settings for the YASQE query value. Setting the values
      * to null, will disable persistancy: nothing is stored between browser

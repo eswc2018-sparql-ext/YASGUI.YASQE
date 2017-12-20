@@ -6,6 +6,7 @@
  */
 import * as _Yasqe from "./";
 import * as CodeMirror from "codemirror";
+import * as queryString from 'query-string'
 //need to pass Yasqe object as argument, as the imported version might not have inherited all (e.g. `fold`) props of Codemirror yet
 export default function get(Yasqe: typeof _Yasqe): _Yasqe.Config {
   return {
@@ -68,17 +69,19 @@ SELECT * WHERE {
     // cursorHeight: 0.9,
 
     createShareLink: function(yasqe: _Yasqe) {
-      // //extend existing link, so first fetch current arguments
-      // var urlParams = {};
-      // if (window.location.hash.length > 1) urlParams = $.deparam(window.location.hash.substring(1));
-      // urlParams["query"] = yasqe.getValue();
-      // return urlParams;
-      return "TODO: implement createhsarelink func in defaults";
+      return document.location.protocol +
+      "//" +
+      document.location.host +
+      document.location.pathname +
+      document.location.search +
+      "#" + queryString.stringify(yasqe.configToQueryParams());
     },
 
     createShortLink: null,
 
-    // consumeShareLink: YASQE.consumeShareLink,
+    consumeShareLink: function(yasqe:_Yasqe) {
+      yasqe.queryParamsToConfig(yasqe.getUrlParams());
+    },
     persistenceId: function(yasqe: _Yasqe) {
       //Traverse parents untl we've got an id
       // Get matching parent elements
@@ -86,8 +89,8 @@ SELECT * WHERE {
       var elem = <Node>yasqe.rootEl;
       if ((<any>elem).id) id = (<any>elem).id;
       for (; elem && elem !== <any>document; elem = elem.parentNode) {
-        if (parent) {
-          if ((<any>parent).id) id = (<any>parent).id;
+        if (elem) {
+          if ((<any>elem).id) id = (<any>elem).id;
           break;
         }
       }
