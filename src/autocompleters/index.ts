@@ -58,13 +58,16 @@ export class Completer extends EventEmitter {
    * Get completion list from `get` function
    */
   public getCompletions(token?: AutocompletionToken): Promise<string[]> {
-    if (!this.config.get) return;
+    if (!this.config.get) return Promise.resolve([]);
 
     //No token, so probably getting as bulk
     if (!token) {
       if (this.config.get instanceof Array) return Promise.resolve(this.config.get);
       //wrapping call in a promise.resolve, so this when a `get` is both async or sync
-      return Promise.resolve(this.config.get(this.yasqe));
+      return Promise.resolve(this.config.get(this.yasqe)).then(suggestions => {
+      if (suggestions instanceof Array) return suggestions;
+      return [];
+    });
     }
 
     //ok, there is a token
@@ -75,7 +78,10 @@ export class Completer extends EventEmitter {
         this.config.get.filter(possibleMatch => possibleMatch.indexOf(stringToAutocomplete) === 0)
       );
     //assuming it's a function
-    return Promise.resolve(this.config.get(this.yasqe, token)).then(r => r);
+    return Promise.resolve(this.config.get(this.yasqe, token)).then(r => {
+    if (r instanceof Array) return r;
+    return []
+  });
   }
 
   /**
@@ -114,7 +120,6 @@ export class Completer extends EventEmitter {
       return false;
     }
     if (!this.config.autoShow) {
-      console.log('show notification???')
       this.yasqe.showNotification(this.config.name, 'Press CTRL - <spacebar> to autocomplete')
     }
     this.emit("validPosition", this);

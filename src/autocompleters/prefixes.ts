@@ -6,10 +6,7 @@ var tokenTypes: { [id: string]: "prefixed" | "var" } = {
 const prefixCcApi =
   (window.location.protocol.indexOf("http") === 0 ? "//" : "http://") + "prefix.cc/popular/all.file.json";
 import * as superagent from "superagent";
-// //this autocompleter also fires on-change!
-// yasqe.on("change", function() {
-// module.exports.appendPrefixIfNeeded(yasqe, completerName);
-// });
+
 const NAME = "prefixes";
 var conf: Autocompleter.CompleterConfig = {
   onInitialize: function(yasqe) {
@@ -38,10 +35,9 @@ var conf: Autocompleter.CompleterConfig = {
               // ok, so it isnt added yet!
               // var completions = yasqe.autocompleters.getTrie(completerName).autoComplete(currentPrefix);
               token.autocompletionString = currentPrefix;
-              var completions = yasqe.autocompleters[NAME].getCompletions(token).then(suggestions => {
+              yasqe.autocompleters[NAME].getCompletions(token).then(suggestions => {
                 if (suggestions.length) {
-                  console.warn("TODO: add prefixes to query", suggestions[0]);
-                  // yasqe.addPrefixes(completions[0]);
+                  yasqe.addPrefixes(suggestions[0]);
                 }
               }, console.warn);
             }

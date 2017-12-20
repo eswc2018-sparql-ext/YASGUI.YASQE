@@ -78,9 +78,3 @@ export function getIndentFromLine(yasqe:Yasqe, line:number, charNumber:number = 
     return token.string + getIndentFromLine(yasqe, line, token.end + 1);
   }
 };
-
-module.exports = {
-  addPrefixes: addPrefixes,
-  getPrefixesFromQuery: getPrefixesFromQuery,
-  removePrefixes: removePrefixes
-};

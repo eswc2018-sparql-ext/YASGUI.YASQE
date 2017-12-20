@@ -18,7 +18,7 @@ require("./scss/yasqe.scss");
 require("./scss/buttons.scss");
 import * as superagent from "superagent";
 import { default as prefixFold, findFirstPrefixLine } from "./prefixFold";
-import { getPrefixesFromQuery } from "./prefixUtils";
+import { getPrefixesFromQuery, addPrefixes, addPrefixAsString, removePrefixes, Prefixes } from "./prefixUtils";
 import { getPreviousNonWsToken, getNextNonWsToken, getCompleteToken } from "./tokenUtils";
 import * as sparql11Mode from "../grammar/tokenizer";
 import YStorage from "yasgui-utils/build/Storage";
@@ -55,8 +55,7 @@ interface Yasqe extends CodeMirror.Editor {
   off(eventName: string, handler: (instance: any) => void): void;
 }
 
-
-class Yasqe  {
+class Yasqe {
   private static storageNamespace = "triply";
   public autocompleters: { [name: string]: Autocompleter.Completer } = {};
   private prevQueryValid = false;
@@ -140,21 +139,20 @@ class Yasqe  {
         return "query";
     }
   }
-  private notificationEls:{[key:string]:HTMLDivElement}= {}
-  showNotification(key:string, message:string) {
+  private notificationEls: { [key: string]: HTMLDivElement } = {};
+  showNotification(key: string, message: string) {
     if (!this.notificationEls[key]) {
-      this.notificationEls[key] = document.createElement('div')
-      this.notificationEls[key].className = 'notification ' + ' notif_' + key;
+      this.notificationEls[key] = document.createElement("div");
+      this.notificationEls[key].className = "notification " + " notif_" + key;
       this.getWrapperElement().appendChild(this.notificationEls[key]);
     }
     const el = this.notificationEls[key];
-    el.style.display = 'block';
+    el.style.display = "block";
     el.innerText = message;
-
   }
-  hideNotification(key:string) {
+  hideNotification(key: string) {
     if (this.notificationEls[key]) {
-      this.notificationEls[key].style.display = 'none'
+      this.notificationEls[key].style.display = "none";
     }
   }
   static Autocompleters: { [name: string]: Autocompleter.CompleterConfig } = {};
@@ -179,9 +177,9 @@ class Yasqe  {
     if (this.getDoc().somethingSelected()) return;
 
     for (let i in this.config.autocompleters) {
-
-      const completerName = this.config.autocompleters[i]
-      if (!this.autocompleters[completerName] || !this.autocompleters[completerName].autocomplete(fromAutoShow)) continue;
+      const completerName = this.config.autocompleters[i];
+      if (!this.autocompleters[completerName] || !this.autocompleters[completerName].autocomplete(fromAutoShow))
+        continue;
     }
   }
   emit(event: string, ...data: any[]) {
@@ -206,82 +204,89 @@ class Yasqe  {
   getPrefixesFromQuery() {
     return getPrefixesFromQuery(this);
   }
-  //TODO: if enabled, update the prefixes completer
-  // yasqe.addPrefixes = function(prefixes) {
-  //   return require("./prefixUtils.js").addPrefixes(yasqe, prefixes);
-  // };
-  // yasqe.removePrefixes = function(prefixes) {
-  //   return require("./prefixUtils.js").removePrefixes(yasqe, prefixes);
-  // };
-  // yasqe.getVariablesFromQuery = function() {
-  //   //Use precise here. We want to be sure we use the most up to date state. If we're
-  //   //not, we might get outdated info from the current query (creating loops such
-  //   //as https://github.com/OpenTriply/YASGUI/issues/84)
-  //   //on caveat: this function won't work when query is invalid (i.e. when typing)
-  //   return $.map(yasqe.getTokenAt({ line: yasqe.lastLine(), ch: yasqe.getLine(yasqe.lastLine()).length }, true).state.variables, function(val,key) {return key});
-  // }
+  addPrefixes(prefixes: string | Prefixes) {
+    return addPrefixes(this, prefixes);
+  }
+  removePrefixes(prefixes: Prefixes) {
+    return removePrefixes(this, prefixes);
+  }
+  getVariablesFromQuery() {
+    //Use precise here. We want to be sure we use the most up to date state. If we're
+    //not, we might get outdated info from the current query (creating loops such
+    //as https://github.com/OpenTriply/YASGUI/issues/84)
+    //on caveat: this function won't work when query is invalid (i.e. when typing)
+    const token: Yasqe.Token = this.getTokenAt(
+      { line: this.getDoc().lastLine(), ch: this.getDoc().getLine(this.getDoc().lastLine()).length },
+      true
+    );
+    const vars: string[] = [];
+    for (var v in token.state.variables) {
+      vars.push(v);
+    }
+    return vars.sort();
+  }
   //values in the form of {?var: 'value'}, or [{?var: 'value'}]
-  // yasqe.getQueryWithValues = function(values) {
-  //   if (!values) return yasqe.getValue();
-  //   var injectString;
-  //   if (typeof values === 'string') {
-  //     injectString = values;
-  //   } else {
-  //     //start building inject string
-  //     if (!Array.isArray(values)) values = [values];
-  //     var variables = values.reduce(function(vars, valueObj) {
-  //       for (var v in valueObj) {
-  //         vars[v] = v;
-  //       }
-  //       return vars;
-  //     }, {})
-  //     var varArray = [];
-  //     for (var v in variables) {
-  //       varArray.push(v);
-  //     }
-  //
-  //     if (!varArray.length) return yasqe.getValue() ;
-  //     //ok, we've got enough info to start building the string now
-  //     injectString = "VALUES (" + varArray.join(' ') + ") {\n";
-  //     values.forEach(function(valueObj) {
-  //       injectString += "( ";
-  //       varArray.forEach(function(variable) {
-  //         injectString += valueObj[variable] || "UNDEF"
-  //       })
-  //       injectString += " )\n"
-  //     })
-  //     injectString += "}\n"
-  //   }
-  //   if (!injectString) return yasqe.getValue();
-  //
-  //   var newQuery = ""
-  //   var injected = false;
-  //   var gotSelect = false;
-  //   root.runMode(yasqe.getValue(), "sparql11", function(stringVal, className, row, col, state) {
-  //     if (className === "keyword" && stringVal.toLowerCase() === 'select') gotSelect = true;
-  //     newQuery += stringVal;
-  //     if (gotSelect && !injected && className === "punc" && stringVal === "{") {
-  //       injected = true;
-  //       //start injecting
-  //       newQuery += "\n" + injectString;
-  //     }
-  //   });
-  //   return newQuery
-  // }
+  getQueryWithValues(values: string | { [varName: string]: string } | Array<{ [varName: string]: string }>) {
+    if (!values) return this.getValue();
+    var injectString: string;
+    if (typeof values === "string") {
+      injectString = values;
+    } else {
+      //start building inject string
+      if (!(values instanceof Array)) values = [values];
+      var variables = values.reduce(function(vars, valueObj) {
+        for (var v in valueObj) {
+          vars[v] = v;
+        }
+        return vars;
+      }, {});
+      var varArray: string[] = [];
+      for (var v in variables) {
+        varArray.push(v);
+      }
 
-  // getValueWithoutComments() {
-  //   var cleanedQuery = "";
-  //   CodeMirror.runMode(this.getValue(), "sparql11", function(stringVal, className) {
-  //     if (className != "comment") {
-  //       cleanedQuery += stringVal;
-  //     }
-  //   });
-  //   return cleanedQuery;
-  // };
+      if (!varArray.length) return this.getValue();
+      //ok, we've got enough info to start building the string now
+      injectString = "VALUES (" + varArray.join(" ") + ") {\n";
+      values.forEach(function(valueObj) {
+        injectString += "( ";
+        varArray.forEach(function(variable) {
+          injectString += valueObj[variable] || "UNDEF";
+        });
+        injectString += " )\n";
+      });
+      injectString += "}\n";
+    }
+    if (!injectString) return this.getValue();
+
+    var newQuery = "";
+    var injected = false;
+    var gotSelect = false;
+    (<any>Yasqe).runMode(this.getValue(), "sparql11", function(stringVal:string, className:string, row:number, col:number, state:Yasqe.TokenizerState) {
+      if (className === "keyword" && stringVal.toLowerCase() === "select") gotSelect = true;
+      newQuery += stringVal;
+      if (gotSelect && !injected && className === "punc" && stringVal === "{") {
+        injected = true;
+        //start injecting
+        newQuery += "\n" + injectString;
+      }
+    });
+    return newQuery;
+  }
+
+  getValueWithoutComments() {
+    var cleanedQuery = "";
+    (<any>Yasqe).runMode(this.getValue(), "sparql11", function(stringVal:string, className:string) {
+      if (className != "comment") {
+        cleanedQuery += stringVal;
+      }
+    });
+    return cleanedQuery;
+  };
 
   setCheckSyntaxErrors(isEnabled: boolean) {
     this.config.syntaxErrorCheck = isEnabled;
-    // checkSyntax(this);
+    this.checkSyntax();
   }
   checkSyntax() {
     this.queryValid = true;
@@ -578,6 +583,7 @@ namespace Yasqe {
   export var defaults: Yasqe.Config = getDefaults(Yasqe);
   export type TokenizerState = sparql11Mode.State;
   export type Position = CodeMirror.Position;
+
   export interface HintList {
     list: Hint[];
     from: Yasqe.Position;
@@ -678,8 +684,8 @@ namespace Yasqe {
 }
 //Need to assign our prototype to codemirror's, as some of the callbacks (e.g. the keymap opts)
 //give us a cm doc, instead of a yasqe + cm doc
-Autocompleter.completers.forEach(c  => {
-Yasqe.registerAutocompleter(c);
+Autocompleter.completers.forEach(c => {
+  Yasqe.registerAutocompleter(c);
 });
 (<any>Object).assign(CodeMirror.prototype, Yasqe.prototype);
 export = Yasqe;
