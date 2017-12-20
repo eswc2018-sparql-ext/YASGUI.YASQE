@@ -400,7 +400,6 @@ class Yasqe {
     var formattedQuery = "";
     var currentLine = "";
     var stackTrace: string[] = [];
-    console.log(Yasqe);
     (<any>Yasqe).runMode(text, "sparql11", function(stringVal: string, type: string) {
       stackTrace.push(type);
       var breakType = getBreakType(stringVal, type);

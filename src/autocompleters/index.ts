@@ -19,6 +19,7 @@ export interface AutocompletionToken extends Yasqe.Token {
   autocompletionString?: string;
   tokenPrefix?:string,
   tokenPrefixUri?:string
+  from?:Partial<Yasqe.Position>
 }
 export class Completer extends EventEmitter {
   protected yasqe: Yasqe;
@@ -130,25 +131,19 @@ export class Completer extends EventEmitter {
     if (this.config.postProcessSuggestion) {
       suggestedString = this.config.postProcessSuggestion(this.yasqe, autocompletionToken, suggestedString);
     }
+    var from:Yasqe.Position
+    if (autocompletionToken.from) {
+      const cur = this.yasqe.getDoc().getCursor();
+      from = {...cur, ...autocompletionToken.from}
+    }
     return {
       text: suggestedString,
-      displayText: suggestedString
+      displayText: suggestedString,
+      from: from
     };
   }
 
   private getHints(token: AutocompletionToken): Promise<Yasqe.Hint[]> {
-    // var getSuggestionsFromToken = (partialToken:AutocompletionToken) => {
-    //   var stringToAutocomplete = partialToken.autocompletionString || partialToken.string;
-    //   var suggestions = [];
-    //   if (this.trie) {
-    //     suggestions = this.trie.autoComplete(stringToAutocomplete);
-    //   } else if (typeof this.config.get == "function" && this.config.async == false) {
-    //     suggestions = <any>this.config.get(stringToAutocomplete);
-    //   } else if (this.config.get instanceof Array) {
-    //     suggestions = this.config.get.filter(possibleMatch => possibleMatch.indexOf(stringToAutocomplete) === 0)
-    //   }
-    //   return this.getSuggestionsAsHintObject(suggestions, partialToken);
-    // };
 
     if (this.config.preProcessToken) {
       token = this.config.preProcessToken(this.yasqe, token);
@@ -194,12 +189,6 @@ export class Completer extends EventEmitter {
       container: this.yasqe.rootEl//this way, we can still scope to css to `.yasqe`
     };
 
-    // if (!this.config.bulk && this.config.async) {
-    //   hintConfig.async = true;
-    // }
-    // var wrappedHintCallback = function(yasqe, callback) {
-    //   return getCompletionHintsObject(completer, callback);
-    // };
     this.yasqe.showHint(hintConfig);
     return true;
   }
@@ -211,21 +200,29 @@ export class Completer extends EventEmitter {
  */
 export function preprocessIriForCompletion(yasqe: Yasqe, token: AutocompletionToken) {
   var queryPrefixes = yasqe.getPrefixesFromQuery();
-  if (token.string.indexOf("<") < 0) {
-    token.tokenPrefix = token.string.substring(0, token.string.indexOf(":") + 1);
+  var stringToPreprocess = token.string;
+  //we might be in a property path...
+  if (token.state.lastProperty && token.state.lastProperty.length) {
+    stringToPreprocess = token.state.lastProperty;
+    token.from = {
+      ch: token.start + token.string.length - token.state.lastProperty.length
+    }
+  }
+  if (stringToPreprocess.indexOf("<") < 0) {
+    token.tokenPrefix = stringToPreprocess.substring(0, stringToPreprocess.indexOf(":") + 1);
 
     if (queryPrefixes[token.tokenPrefix.slice(0, -1)] != null) {
       token.tokenPrefixUri = queryPrefixes[token.tokenPrefix.slice(0, -1)];
     }
   }
 
-  token.autocompletionString = token.string.trim();
-  if (token.string.indexOf("<") < 0 && token.string.indexOf(":") > -1) {
+  token.autocompletionString = stringToPreprocess.trim();
+  if (stringToPreprocess.indexOf("<") < 0 && stringToPreprocess.indexOf(":") > -1) {
     // hmm, the token is prefixed. We still need the complete uri for autocompletions. generate this!
     for (var prefix in queryPrefixes) {
       if (token.tokenPrefix === prefix + ":") {
         token.autocompletionString = queryPrefixes[prefix];
-        token.autocompletionString += token.string.substring(prefix.length + 1);
+        token.autocompletionString += stringToPreprocess.substring(prefix.length + 1);
         break;
       }
     }
@@ -243,7 +240,6 @@ export function postprocessIriCompletion(
   token: AutocompletionToken,
   suggestedString: string
 ) {
-
   if (token.tokenPrefix && token.autocompletionString && token.tokenPrefixUri) {
     // we need to get the suggested string back to prefixed form
     suggestedString = token.tokenPrefix + suggestedString.substring(token.tokenPrefixUri.length);
