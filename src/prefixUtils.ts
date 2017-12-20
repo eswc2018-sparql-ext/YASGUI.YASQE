@@ -18,9 +18,9 @@ export function addPrefixAsString(yasqe:Yasqe, prefixString:string) {
   var lastPrefixLine = 0;
   var numLines = yasqe.getDoc().lineCount();
   for (var i = 0; i < numLines; i++) {
-    var firstToken = yasqe.getNextNonWsToken(i);
-    if (firstToken != null && (firstToken.string == "PREFIX" || firstToken.string == "BASE")) {
-      lastPrefix = firstToken;
+    var firstTokenOnLine = yasqe.getNextNonWsToken(i);
+    if (firstTokenOnLine != null && (firstTokenOnLine.string == "PREFIX" || firstTokenOnLine.string == "BASE")) {
+      lastPrefix = firstTokenOnLine;
       lastPrefixLine = i;
     }
   }
@@ -32,8 +32,8 @@ export function addPrefixAsString(yasqe:Yasqe, prefixString:string) {
     });
   } else {
     var previousIndent = getIndentFromLine(yasqe, lastPrefixLine);
-    yasqe.getDoc().replaceRange("\n" + previousIndent + "PREFIX " + prefixString, {
-      line: lastPrefixLine,
+    yasqe.getDoc().replaceRange(previousIndent + "PREFIX " + prefixString + "\n", {
+      line: lastPrefixLine + 1,
       ch: 0
     });
   }
