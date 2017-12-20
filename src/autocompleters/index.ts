@@ -1,6 +1,7 @@
 import * as Yasqe from "../";
 import Trie from "../trie";
 import { EventEmitter } from "events";
+import * as superagent from 'superagent'
 export class CompleterConfig {
   onInitialize?: (yasqe:Yasqe) => void;//allows for e.g. registering event listeners in yasqe, like the prefix autocompleter does
   isValidCompletionPosition: (yasqe: Yasqe) => boolean;
@@ -16,16 +17,17 @@ export class CompleterConfig {
 
 export interface AutocompletionToken extends Yasqe.Token {
   autocompletionString?: string;
+  tokenPrefix?:string,
+  tokenPrefixUri?:string
 }
 export class Completer extends EventEmitter {
   protected yasqe: Yasqe;
   private trie: Trie;
   private config: CompleterConfig;
-  constructor(yasqe: Yasqe, config: CompleterConfig, name: string) {
+  constructor(yasqe: Yasqe, config: CompleterConfig) {
     super();
     this.yasqe = yasqe;
     this.config = config;
-    this.config.name = name;
   }
 
   // private selectHint(data:EditorChange, completion:any) {
@@ -108,7 +110,12 @@ export class Completer extends EventEmitter {
     if (!this.config.isValidCompletionPosition) return false; //no way to check whether we are in a valid position
     if (!this.config.isValidCompletionPosition(this.yasqe)) {
       this.emit("invalidPosition", this);
+      this.yasqe.hideNotification(this.config.name)
       return false;
+    }
+    if (!this.config.autoShow) {
+      console.log('show notification???')
+      this.yasqe.showNotification(this.config.name, 'Press CTRL - <spacebar> to autocomplete')
     }
     this.emit("validPosition", this);
     return true;
@@ -146,14 +153,15 @@ export class Completer extends EventEmitter {
     return Promise.resolve([]);
   }
   public autocomplete(fromAutoShow: boolean) {
+    //this part goes before the autoshow check, as we _would_ like notification showing to indicate a user can press ctrl-space
+    if (!this.isValidPosition()) return false;
     if (
       fromAutoShow && // from autoShow, i.e. this gets called each time the editor content changes
       (!this.config.autoShow || // autoshow for  this particular type of autocompletion is -not- enabled
-        (!this.config.bulk && this.config.async)) // async is enabled (don't want to re-do ajax-like request for every editor change)
+      (!this.config.bulk && this.config.async)) // async is enabled (don't want to re-do ajax-like request for every editor change)
     ) {
-      return false;
-    }
-    if (!this.isValidPosition()) return false;
+    return false;
+  }
     const cur = this.yasqe.getDoc().getCursor();
     const token: AutocompletionToken = this.yasqe.getCompleteToken();
     const getHints: Yasqe.HintFn = () => {
@@ -192,8 +200,98 @@ export class Completer extends EventEmitter {
   }
 }
 
-export { default as variableCompleter } from "./variables";
-export { default as prefixCompleter } from "./prefixes";
+/**
+ * Converts rdf:type to http://.../type and converts <http://...> to http://...
+ * Stores additional info such as the used namespace and prefix in the token object
+ */
+export function preprocessIriForCompletion(yasqe: Yasqe, token: AutocompletionToken) {
+  var queryPrefixes = yasqe.getPrefixesFromQuery();
+  if (token.string.indexOf("<") < 0) {
+    token.tokenPrefix = token.string.substring(0, token.string.indexOf(":") + 1);
+
+    if (queryPrefixes[token.tokenPrefix.slice(0, -1)] != null) {
+      token.tokenPrefixUri = queryPrefixes[token.tokenPrefix.slice(0, -1)];
+    }
+  }
+
+  token.autocompletionString = token.string.trim();
+  if (token.string.indexOf("<") < 0 && token.string.indexOf(":") > -1) {
+    // hmm, the token is prefixed. We still need the complete uri for autocompletions. generate this!
+    for (var prefix in queryPrefixes) {
+      if (token.tokenPrefix === prefix + ":") {
+        token.autocompletionString = queryPrefixes[prefix];
+        token.autocompletionString += token.string.substring(prefix.length + 1);
+        break;
+      }
+    }
+  }
+
+  if (token.autocompletionString.indexOf("<") == 0)
+    token.autocompletionString = token.autocompletionString.substring(1);
+  if (token.autocompletionString.indexOf(">", token.autocompletionString.length - 1) > 0)
+    token.autocompletionString = token.autocompletionString.substring(0, token.autocompletionString.length - 1);
+  return token;
+}
+
+export function postprocessIriCompletion(
+  yasqe: Yasqe,
+  token: AutocompletionToken,
+  suggestedString: string
+) {
+
+  if (token.tokenPrefix && token.autocompletionString && token.tokenPrefixUri) {
+    // we need to get the suggested string back to prefixed form
+    suggestedString = token.tokenPrefix + suggestedString.substring(token.tokenPrefixUri.length);
+  } else {
+    // it is a regular uri. add '<' and '>' to string
+    suggestedString = "<" + suggestedString + ">";
+  }
+  return suggestedString;
+}
+
+//Use protocol relative request when served via http[s]*. Otherwise (e.g. file://, fetch via http)
+export function fetchFromLov(yasqe: Yasqe, type: "class" | "property", token: AutocompletionToken): Promise<string[]> {
+  var reqProtocol = window.location.protocol.indexOf("http") === 0 ? "//" : "http://";
+  const notificationKey = "autocomplete_" + type;
+  if (!token || !token.string || token.string.trim().length == 0) {
+    yasqe.showNotification(notificationKey, "Nothing to autocomplete yet!");
+    return Promise.resolve();
+  }
+  // //if notification bar is there, show a loader
+  // yasqe.autocompleters.notifications
+  //   .getEl(completer)
+  //   .empty()
+  //   .append($("<span>Fetchting autocompletions &nbsp;</span>"))
+  //   .append($(yutils.svg.getElement(require("../imgs.js").loader)).addClass("notificationLoader"));
+  // doRequests();
+  return superagent
+    .get(reqProtocol + "lov.okfn.org/dataset/lov/api/v2/autocomplete/terms")
+    .query({
+      q: token.autocompletionString,
+      page_size: 50,
+      type: type
+    })
+    .then(
+      result => {
+        if (result.body.results) {
+          return result.body.results.map((r: any) => r.uri[0]);
+        }
+        return [];
+      },
+      e => {
+        yasqe.showNotification(notificationKey, "Failed fetching suggestions");
+      }
+    );
+}
+
+import  variableCompleter  from "./variables";
+import  prefixCompleter  from "./prefixes";
+import  propertyCompleter  from "./properties";
+export var completers:CompleterConfig[] = [
+  variableCompleter,
+  prefixCompleter,
+  propertyCompleter
+]
 // var needPossibleAdjustment = [];
 // for (var notificationName in completionNotifications) {
 //   if (completionNotifications[notificationName].is(":visible")) {

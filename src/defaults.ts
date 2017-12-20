@@ -5,7 +5,7 @@
  * passing your own options as second argument to the YASQE constructor
  */
 import * as _Yasqe from "./";
-import * as CodeMirror from 'codemirror'
+import * as CodeMirror from "codemirror";
 //need to pass Yasqe object as argument, as the imported version might not have inherited all (e.g. `fold`) props of Codemirror yet
 export default function get(Yasqe: typeof _Yasqe): _Yasqe.Config {
   return {
@@ -31,71 +31,72 @@ SELECT * WHERE {
     syntaxErrorCheck: true,
     autocompleters: [],
     extraKeys: {
-      					"Ctrl-Space" : function(yasqe:_Yasqe) {
-      						yasqe.autocomplete();
-      					},
-    //   "Ctrl-Space": YASQE.autoComplete,
-    //
-    //   "Cmd-Space": YASQE.autoComplete,
-    //   "Ctrl-D": YASQE.deleteLine,
-    //   "Ctrl-K": YASQE.deleteLine,
-    //   "Shift-Ctrl-K": YASQE.deleteLine,
-    //   "Cmd-D": YASQE.deleteLine,
-    //   "Cmd-K": YASQE.deleteLine,
-    //   "Ctrl-/": YASQE.commentLines,
-    //   "Cmd-/": YASQE.commentLines,
-    //   "Ctrl-Alt-Down": YASQE.copyLineDown,
-    //   "Ctrl-Alt-Up": YASQE.copyLineUp,
-    //   "Cmd-Alt-Down": YASQE.copyLineDown,
-    //   "Cmd-Alt-Up": YASQE.copyLineUp,
-    //   "Shift-Ctrl-F": YASQE.doAutoFormat,
-    //   "Shift-Cmd-F": YASQE.doAutoFormat,
-    //   "Ctrl-]": YASQE.indentMore,
-    //   "Cmd-]": YASQE.indentMore,
-    //   "Ctrl-[": YASQE.indentLess,
-    //   "Cmd-[": YASQE.indentLess,
-    //   "Ctrl-S": YASQE.storeQuery,
-    //   "Cmd-S": YASQE.storeQuery,
-      // "Ctrl-Enter": YASQE.executeQuery,
-      F11: function(yasqe:_Yasqe) {
-        yasqe.setFullscreen(true)
+      "Ctrl-Space": function(yasqe: _Yasqe) {
+
+        yasqe.autocomplete();
       },
-      Esc: function(yasqe:_Yasqe) {
-        yasqe.setFullscreen(false)
+      //   "Ctrl-Space": YASQE.autoComplete,
+      //
+      //   "Cmd-Space": YASQE.autoComplete,
+      //   "Ctrl-D": YASQE.deleteLine,
+      //   "Ctrl-K": YASQE.deleteLine,
+      //   "Shift-Ctrl-K": YASQE.deleteLine,
+      //   "Cmd-D": YASQE.deleteLine,
+      //   "Cmd-K": YASQE.deleteLine,
+      //   "Ctrl-/": YASQE.commentLines,
+      //   "Cmd-/": YASQE.commentLines,
+      //   "Ctrl-Alt-Down": YASQE.copyLineDown,
+      //   "Ctrl-Alt-Up": YASQE.copyLineUp,
+      //   "Cmd-Alt-Down": YASQE.copyLineDown,
+      //   "Cmd-Alt-Up": YASQE.copyLineUp,
+      //   "Shift-Ctrl-F": YASQE.doAutoFormat,
+      //   "Shift-Cmd-F": YASQE.doAutoFormat,
+      //   "Ctrl-]": YASQE.indentMore,
+      //   "Cmd-]": YASQE.indentMore,
+      //   "Ctrl-[": YASQE.indentLess,
+      //   "Cmd-[": YASQE.indentLess,
+      //   "Ctrl-S": YASQE.storeQuery,
+      //   "Cmd-S": YASQE.storeQuery,
+      // "Ctrl-Enter": YASQE.executeQuery,
+      F11: function(yasqe: _Yasqe) {
+        yasqe.setFullscreen(true);
+      },
+      Esc: function(yasqe: _Yasqe) {
+        yasqe.setFullscreen(false);
       }
     },
     // cursorHeight: 0.9,
 
-    createShareLink: function(yasqe:_Yasqe) {
+    createShareLink: function(yasqe: _Yasqe) {
       // //extend existing link, so first fetch current arguments
       // var urlParams = {};
       // if (window.location.hash.length > 1) urlParams = $.deparam(window.location.hash.substring(1));
       // urlParams["query"] = yasqe.getValue();
       // return urlParams;
-      return 'TODO: implement createhsarelink func in defaults'
+      return "TODO: implement createhsarelink func in defaults";
     },
 
     createShortLink: null,
 
     // consumeShareLink: YASQE.consumeShareLink,
-    persistenceId: function(yasqe:_Yasqe) {
+    persistenceId: function(yasqe: _Yasqe) {
       //Traverse parents untl we've got an id
-        // Get matching parent elements
-      var id = ''
-      var elem = <Node>yasqe.rootEl
+      // Get matching parent elements
+      var id = "";
+      var elem = <Node>yasqe.rootEl;
       if ((<any>elem).id) id = (<any>elem).id;
-        for ( ; elem && elem !== <any>document; elem = elem.parentNode ) {
-          if ( parent ) {
-             if ((<any>parent).id) id = (<any>parent).id;
-             break;
-          }
+      for (; elem && elem !== <any>document; elem = elem.parentNode) {
+        if (parent) {
+          if ((<any>parent).id) id = (<any>parent).id;
+          break;
+        }
       }
       return "yasqe_" + id + "_query";
     },
     persistencyExpire: 60 * 60 * 24 * 30,
 
     sparql: {
-      queryName: function(yasqe: _Yasqe):string {
+      queryName: function(yasqe: _Yasqe): string {
         return yasqe.getQueryMode();
       },
       showQueryButton: true,
@@ -110,8 +111,7 @@ SELECT * WHERE {
       args: [],
       headers: {},
 
-      getQueryForAjax: null,
-
+      getQueryForAjax: null
     }
   };
 }

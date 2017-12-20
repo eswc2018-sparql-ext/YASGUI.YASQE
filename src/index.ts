@@ -54,8 +54,9 @@ interface Yasqe extends CodeMirror.Editor {
   on(eventName: string, handler: (instance: any) => void): void;
   off(eventName: string, handler: (instance: any) => void): void;
 }
-// var Yasqe = CodeMirror
-class Yasqe {
+
+
+class Yasqe  {
   private static storageNamespace = "triply";
   public autocompleters: { [name: string]: Autocompleter.Completer } = {};
   private prevQueryValid = false;
@@ -76,6 +77,7 @@ class Yasqe {
     parent.appendChild(this.rootEl);
     this.config = merge({}, Yasqe.defaults, conf);
     //inherit codemirror props
+    (<any>Object).assign(CodeMirror.prototype, this);
     (<any>Object).assign(this, CodeMirror.prototype, CodeMirror(this.rootEl, this.config));
 
     //Do some post processing
@@ -138,8 +140,26 @@ class Yasqe {
         return "query";
     }
   }
+  private notificationEls:{[key:string]:HTMLDivElement}= {}
+  showNotification(key:string, message:string) {
+    if (!this.notificationEls[key]) {
+      this.notificationEls[key] = document.createElement('div')
+      this.notificationEls[key].className = 'notification ' + ' notif_' + key;
+      this.getWrapperElement().appendChild(this.notificationEls[key]);
+    }
+    const el = this.notificationEls[key];
+    el.style.display = 'block';
+    el.innerText = message;
+
+  }
+  hideNotification(key:string) {
+    if (this.notificationEls[key]) {
+      this.notificationEls[key].style.display = 'none'
+    }
+  }
   static Autocompleters: { [name: string]: Autocompleter.CompleterConfig } = {};
-  static registerAutocompleter(name: string, value: Autocompleter.CompleterConfig, enable = true) {
+  static registerAutocompleter(value: Autocompleter.CompleterConfig, enable = true) {
+    const name = value.name;
     Yasqe.Autocompleters[name] = value;
     if (enable && Yasqe.defaults.autocompleters.indexOf(name) < 0) Yasqe.defaults.autocompleters.push(name);
   }
@@ -148,7 +168,7 @@ class Yasqe {
     if (!Yasqe.Autocompleters[name])
       return Promise.reject(new Error("Autocompleter " + name + " is not a registered autocompleter"));
     if (this.config.autocompleters.indexOf(name) < 0) this.config.autocompleters.push(name);
-    this.autocompleters[name] = new Autocompleter.Completer(this, Yasqe.Autocompleters[name], name);
+    this.autocompleters[name] = new Autocompleter.Completer(this, Yasqe.Autocompleters[name]);
     return this.autocompleters[name].initialize();
   }
   disableCompleter(name: string) {
@@ -157,12 +177,13 @@ class Yasqe {
   }
   autocomplete(fromAutoShow = false) {
     if (this.getDoc().somethingSelected()) return;
+
     for (let i in this.config.autocompleters) {
+
       const completerName = this.config.autocompleters[i]
       if (!this.autocompleters[completerName] || !this.autocompleters[completerName].autocomplete(fromAutoShow)) continue;
     }
   }
-
   emit(event: string, ...data: any[]) {
     CodeMirror.signal(this, event, this, ...data);
   }
@@ -372,7 +393,7 @@ class Yasqe {
           document.location.pathname +
           document.location.search +
           "#";
-        console.log("TODO: create actual share link");
+        console.info("TODO: create actual share link");
         // $.param(yasqe.options.createShareLink(yasqe))
 
         input.onfocus = function() {
@@ -655,6 +676,10 @@ namespace Yasqe {
   //add missing static functions, added by e.g. addons
   // declare function runMode(text:string, mode:any, out:any):void
 }
-Yasqe.registerAutocompleter("variables", Autocompleter.variableCompleter);
-Yasqe.registerAutocompleter("prefixes", Autocompleter.prefixCompleter);
+//Need to assign our prototype to codemirror's, as some of the callbacks (e.g. the keymap opts)
+//give us a cm doc, instead of a yasqe + cm doc
+Autocompleter.completers.forEach(c  => {
+Yasqe.registerAutocompleter(c);
+});
+(<any>Object).assign(CodeMirror.prototype, Yasqe.prototype);
 export = Yasqe;
