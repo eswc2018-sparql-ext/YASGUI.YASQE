@@ -11,7 +11,6 @@ var conf: Autocompleter.CompleterConfig = {
   },
   isValidCompletionPosition: function(yasqe) {
     const token = yasqe.getCompleteToken();
-    console.log(token)
     if (token.string.length == 0) return false; //we want -something- to autocomplete
     if (token.string[0] === "?" || token.string[0] === "$") return false; // we are typing a var
     if (token.state.possibleCurrent.indexOf("a") >= 0) return true; // predicate pos
