@@ -23,13 +23,14 @@ import { getPreviousNonWsToken, getNextNonWsToken, getCompleteToken } from "./to
 import * as sparql11Mode from "../grammar/tokenizer";
 import YStorage from "yasgui-utils/build/Storage";
 import * as queryString from 'query-string'
+import tooltip from './tooltip'
 import { drawSvgStringAsElement } from "yasgui-utils/build";
 import * as Sparql from "./sparql";
 CodeMirror.defineMode("sparql11", sparql11Mode.default);
 import * as imgs from "./imgs";
 import * as Autocompleter from "./autocompleters";
 // export var
-import { merge } from "lodash";
+import { merge,escape } from "lodash";
 // @ts-ignore
 // var Yasqe = CodeMirror
 
@@ -98,6 +99,7 @@ class Yasqe {
         this.config.consumeShareLink(this);
       });
     }
+    this.checkSyntax();
     /**
      * Register listeners
      */
@@ -334,21 +336,17 @@ class Yasqe {
         }
         const warningEl = drawSvgStringAsElement(imgs.warning);
         if (state.errorMsg) {
-          //TODO: render tooltip
-          // require("./tooltip")(yasqe, warningEl, function() {
-          //   return $("<div/>").text(token.state.errorMsg).html();
-          // });
+          tooltip(this, warningEl, escape(token.state.errorMsg))
         } else if (state.possibleCurrent && state.possibleCurrent.length > 0) {
-          //TODO: render tooltip
-          // require("./tooltip")(yasqe, warningEl, function() {
-          //   var expectedEncoded = [];
-          //   state.possibleCurrent.forEach(function(expected) {
-          //     expectedEncoded.push(
-          //       "<strong style='text-decoration:underline'>" + $("<div/>").text(expected).html() + "</strong>"
-          //     );
-          //   });
-          //   return "This line is invalid. Expected: " + expectedEncoded.join(", ");
-          // });
+
+
+          var expectedEncoded:string[] = [];
+          state.possibleCurrent.forEach(function(expected) {
+            expectedEncoded.push(
+              "<strong style='text-decoration:underline'>" + escape(expected) + "</strong>"
+            );
+          });
+          tooltip(this, warningEl, "This line is invalid. Expected: " + expectedEncoded.join(", "))
         }
         // warningEl.style.marginTop = "2px";
         // warningEl.style.marginLeft = "2px";

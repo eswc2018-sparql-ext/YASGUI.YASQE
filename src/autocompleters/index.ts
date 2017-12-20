@@ -292,10 +292,12 @@ export function fetchFromLov(yasqe: Yasqe, type: "class" | "property", token: Au
 import  variableCompleter  from "./variables";
 import  prefixCompleter  from "./prefixes";
 import  propertyCompleter  from "./properties";
+import  classCompleter  from "./classes";
 export var completers:CompleterConfig[] = [
   variableCompleter,
   prefixCompleter,
-  propertyCompleter
+  propertyCompleter,
+  classCompleter
 ]
 // var needPossibleAdjustment = [];
 // for (var notificationName in completionNotifications) {
