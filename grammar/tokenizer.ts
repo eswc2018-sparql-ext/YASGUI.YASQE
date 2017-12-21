@@ -1,7 +1,7 @@
 import * as CodeMirror from "codemirror";
 export interface State {
-  tokenize: (stream: CodeMirror.StringStream, state:State)=>string
-  inLiteral: 'SINGLE' | 'DOUBLE';
+  tokenize: (stream: CodeMirror.StringStream, state: State) => string;
+  inLiteral: "SINGLE" | "DOUBLE";
   errorStartPos: number;
   errorEndPos: number;
   queryType:
@@ -32,16 +32,16 @@ export interface State {
   lastProperty: string;
   errorMsg: string;
   lastPredicateOffset: number;
-  currentPnameNs: string
+  currentPnameNs: string;
 }
 export interface Token {
-  quotePos: 'end' | 'start' | 'content',
-  cat: string,
-  style: string
-  string: string,
-  start: number
+  quotePos: "end" | "start" | "content";
+  cat: string;
+  style: string;
+  string: string;
+  start: number;
 }
-export default function(config:CodeMirror.EditorConfiguration, parserConfig: any):CodeMirror.Mode<State> {
+export default function(config: CodeMirror.EditorConfiguration, parserConfig: any): CodeMirror.Mode<State> {
   const grammar = require("./_tokenizer-table.js");
   const ll1_table = grammar.table;
 
@@ -92,12 +92,14 @@ export default function(config:CodeMirror.EditorConfiguration, parserConfig: any
   const STRING_LITERAL1 = "'(([^\\x27\\x5C\\x0A\\x0D])|" + ECHAR + "|" + unicode + ")*'";
   const STRING_LITERAL2 = '"(([^\\x22\\x5C\\x0A\\x0D])|' + ECHAR + "|" + unicode + ')*"';
 
-  const STRING_LITERAL_LONG:{[key:string]: {
-    CAT: string,
-    QUOTES: string,
-    CONTENTS: string,
-    COMPLETE?:string
-  }} = {
+  const STRING_LITERAL_LONG: {
+    [key: string]: {
+      CAT: string;
+      QUOTES: string;
+      CONTENTS: string;
+      COMPLETE?: string;
+    };
+  } = {
     SINGLE: {
       CAT: "STRING_LITERAL_LONG1",
       QUOTES: "'''",
@@ -115,16 +117,18 @@ export default function(config:CodeMirror.EditorConfiguration, parserConfig: any
   }
   //some regular expressions not used in regular terminals, because this is used accross lines
   interface LiteralRegex {
-  name: string,
-  regex: RegExp,
-  style:string
-}
-  var stringLiteralLongRegex:{[k:string]: {
-  complete:LiteralRegex,
-  contents:LiteralRegex
-  closing: LiteralRegex
-  quotes:LiteralRegex
-}} = {};
+    name: string;
+    regex: RegExp;
+    style: string;
+  }
+  var stringLiteralLongRegex: {
+    [k: string]: {
+      complete: LiteralRegex;
+      contents: LiteralRegex;
+      closing: LiteralRegex;
+      quotes: LiteralRegex;
+    };
+  } = {};
   for (const key in STRING_LITERAL_LONG) {
     stringLiteralLongRegex[key] = {
       complete: {
@@ -297,7 +301,7 @@ export default function(config:CodeMirror.EditorConfiguration, parserConfig: any
     }
   ];
 
-  function getPossibles(symbol:string) {
+  function getPossibles(symbol: string) {
     var possibles = [],
       possiblesOb = ll1_table[symbol];
     if (possiblesOb != undefined) {
@@ -310,9 +314,9 @@ export default function(config:CodeMirror.EditorConfiguration, parserConfig: any
     return possibles;
   }
 
-  function tokenBase(stream:CodeMirror.StringStream, state:State) {
-    function nextToken():Token {
-      var consumed:string[] = null;
+  function tokenBase(stream: CodeMirror.StringStream, state: State) {
+    function nextToken(): Token {
+      var consumed: string[] = null;
       if (state.inLiteral) {
         var closingQuotes = false;
         //multi-line literal. try to parse contents.
@@ -325,7 +329,7 @@ export default function(config:CodeMirror.EditorConfiguration, parserConfig: any
 
         if (consumed && consumed[0].length > 0) {
           //some string content here.
-          const returnObj:Token = {
+          const returnObj: Token = {
             quotePos: closingQuotes ? "end" : "content",
             cat: STRING_LITERAL_LONG[state.inLiteral].CAT,
             style: stringLiteralLongRegex[state.inLiteral].complete.style,
@@ -341,7 +345,7 @@ export default function(config:CodeMirror.EditorConfiguration, parserConfig: any
       for (const quoteType in stringLiteralLongRegex) {
         consumed = stream.match(stringLiteralLongRegex[quoteType].quotes.regex as any, true, false) as any;
         if (consumed) {
-          var quotePos:Token['quotePos'];
+          var quotePos: Token["quotePos"];
           if (state.inLiteral) {
             //end of literal. everything is fine
             state.inLiteral = null;
@@ -414,10 +418,10 @@ export default function(config:CodeMirror.EditorConfiguration, parserConfig: any
       state.errorStartPos = col;
       state.errorEndPos = col + tokenOb.string.length;
     }
-    function setQueryType(s:string) {
+    function setQueryType(s: string) {
       if (state.queryType == null) {
-        switch(s) {
-          case 'SELECT':
+        switch (s) {
+          case "SELECT":
           case "CONSTRUCT":
           case "ASK":
           case "DESCRIBE":
@@ -431,14 +435,14 @@ export default function(config:CodeMirror.EditorConfiguration, parserConfig: any
           case "MOVE":
           case "ADD":
             state.queryType = s;
+        }
       }
     }
-  }
 
     // Some fake non-terminals are just there to have side-effect on state
     // - i.e. allow or disallow variables and bnodes in certain non-nesting
     // contexts
-    function setSideConditions(topSymbol:string) {
+    function setSideConditions(topSymbol: string) {
       if (topSymbol === "prefixDecl") {
         state.inPrefixDecl = true;
       } else {
@@ -463,7 +467,7 @@ export default function(config:CodeMirror.EditorConfiguration, parserConfig: any
       }
     }
 
-    function checkSideConditions(topSymbol:string) {
+    function checkSideConditions(topSymbol: string) {
       return (
         (state.allowVars || topSymbol != "var") &&
         (state.allowBnodes ||
@@ -580,10 +584,24 @@ export default function(config:CodeMirror.EditorConfiguration, parserConfig: any
       state.complete = false;
       recordFailurePos();
     }
-
-    if (state.possibleCurrent.indexOf("a") >= 0) {
-      state.lastPredicateOffset = tokenOb.start;
+    if (state.possibleNext.indexOf("a") >= 0) {
+      //only store last pred offset when this prop isnt part of a property path
+      //see #https://github.com/OpenTriply/YASGUI.YASQE/issues/105
+      const line = stream.string;
+      for (let i = tokenOb.start; i >= 0; i--) {
+        if (line[i-1] === " ") {
+          //continue search
+          continue;
+        }
+        if (line[i-1] === "|" || line[i-1] === "/") {
+          //part of property path, not setting this val
+        } else {
+          state.lastPredicateOffset = tokenOb.start;
+        }
+        break;
+      }
     }
+
     state.possibleCurrent = state.possibleNext;
 
     state.possibleNext = getPossibles(state.stack[state.stack.length - 1]);
@@ -591,7 +609,7 @@ export default function(config:CodeMirror.EditorConfiguration, parserConfig: any
     return tokenOb.style;
   }
 
-  const indentTop:{[symbol:string]:number} = {
+  const indentTop: { [symbol: string]: number } = {
     "*[,, object]": 3,
     "*[(,),object]": 3,
     "*[(,),objectPath]": 3,
@@ -611,7 +629,7 @@ export default function(config:CodeMirror.EditorConfiguration, parserConfig: any
     //		"?[or([verbPath, verbSimple]),objectList]": 1,
   };
 
-  const indentTable:{[char:string]:number} = {
+  const indentTable: { [char: string]: number } = {
     "}": 1,
     "]": 1,
     ")": 1,
@@ -621,7 +639,7 @@ export default function(config:CodeMirror.EditorConfiguration, parserConfig: any
     //		"*[;,?[or([verbPath,verbSimple]),objectList]]": 1,
   };
 
-  function indent(state: State, textAfter:string) {
+  function indent(state: State, textAfter: string) {
     //just avoid we don't indent multi-line  literals
     if (state.inLiteral) return 0;
     if (state.stack.length && state.stack[state.stack.length - 1] == "?[or([verbPath,verbSimple]),objectList]") {
@@ -686,4 +704,4 @@ export default function(config:CodeMirror.EditorConfiguration, parserConfig: any
     indent: indent,
     electricChars: "}])"
   };
-};
+}
