@@ -172,6 +172,15 @@ class Yasqe {
     if (enable && Yasqe.defaults.autocompleters.indexOf(name) < 0) Yasqe.defaults.autocompleters.push(name);
   }
 
+  static forkAutocompleter(fromCompleter: string, newCompleter: Autocompleter.CompleterConfig, enable = true) {
+    if (!Yasqe.Autocompleters[fromCompleter]) throw new Error('Autocompleter ' + fromCompleter + ' does not exist')
+    if (Yasqe.Autocompleters[newCompleter.name]) throw new Error('Completer ' + newCompleter.name + ' already exists');
+
+    const name = newCompleter.name;
+    Yasqe.Autocompleters[name] = {...Yasqe.Autocompleters[fromCompleter], ...newCompleter};
+    if (enable && Yasqe.defaults.autocompleters.indexOf(name) < 0) Yasqe.defaults.autocompleters.push(name);
+  }
+
   enableCompleter(name: string): Promise<void> {
     if (!Yasqe.Autocompleters[name])
       return Promise.reject(new Error("Autocompleter " + name + " is not a registered autocompleter"));
