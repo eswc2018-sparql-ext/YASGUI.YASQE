@@ -35,6 +35,7 @@ const config = {
   cache: isDev,
   output: {
     path: path.resolve(__dirname, "..", "build"),
+    publicPath: '/',
     filename: outputFile,
     library: libraryName,
     libraryTarget: "umd",
