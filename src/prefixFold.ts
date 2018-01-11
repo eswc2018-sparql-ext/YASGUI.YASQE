@@ -3,7 +3,7 @@ import * as CodeMirror from 'codemirror'
 import * as TokenUtils from './tokenUtils'
 var lookFor = "PREFIX ";
 
-export function findFirstPrefixLine(yasqe:Yasqe) {
+export function findFirstPrefixLine(yasqe:Yasqe.Instance) {
   var lastLine = yasqe.getDoc().lastLine();
   for (var i = 0; i <= lastLine; ++i) {
     if (findFirstPrefix(yasqe, i) >= 0) {
@@ -12,7 +12,7 @@ export function findFirstPrefixLine(yasqe:Yasqe) {
   }
 }
 
-export function findFirstPrefix(yasqe:Yasqe, line:number, ch = 0, lineText?:string) {
+export function findFirstPrefix(yasqe:Yasqe.Instance, line:number, ch = 0, lineText?:string) {
   if (!lineText) lineText = yasqe.getDoc().getLine(line);
   lineText = lineText.toUpperCase();
   for (var at = ch, pass = 0; ; ) {
@@ -33,7 +33,7 @@ export function findFirstPrefix(yasqe:Yasqe, line:number, ch = 0, lineText?:stri
     if (at === pass) break;
   }
 }
-export default function(yasqe:Yasqe, start:Yasqe.Position) {
+export default function(yasqe:Yasqe.Instance, start:Yasqe.Position) {
   var line = start.line, lineText = yasqe.getDoc().getLine(line);
 
   // var startCh, tokenType;

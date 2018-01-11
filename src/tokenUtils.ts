@@ -7,7 +7,7 @@ import * as Yasqe from './';
  * these
  */
 
-export function getCompleteToken(yasqe:Yasqe, token:Yasqe.Token, cur: Yasqe.Position):Yasqe.Token {
+export function getCompleteToken(yasqe:Yasqe.Instance, token:Yasqe.Token, cur: Yasqe.Position):Yasqe.Token {
   if (!cur) {
     cur = yasqe.getDoc().getCursor();
   }
@@ -35,7 +35,7 @@ export function getCompleteToken(yasqe:Yasqe, token:Yasqe.Token, cur: Yasqe.Posi
     return token;
   }
 };
-export function getPreviousNonWsToken(yasqe: Yasqe, line:number, token:Yasqe.Token):Yasqe.Token {
+export function getPreviousNonWsToken(yasqe: Yasqe.Instance, line:number, token:Yasqe.Token):Yasqe.Token {
   var previousToken = yasqe.getTokenAt({
     line: line,
     ch: token.start
@@ -45,7 +45,7 @@ export function getPreviousNonWsToken(yasqe: Yasqe, line:number, token:Yasqe.Tok
   }
   return previousToken;
 };
-export function getNextNonWsToken(yasqe:Yasqe, lineNumber:number, charNumber:number):Yasqe.Token {
+export function getNextNonWsToken(yasqe:Yasqe.Instance, lineNumber:number, charNumber:number):Yasqe.Token {
   if (charNumber == undefined) charNumber = 1;
   var token = yasqe.getTokenAt({
     line: lineNumber,

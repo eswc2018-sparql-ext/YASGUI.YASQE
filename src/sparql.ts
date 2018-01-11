@@ -13,7 +13,7 @@ export interface PopulatedAjaxConfig {
 
 }
 // type callback = AjaxConfig.callbacks['complete'];
-export function getAjaxConfig(yasqe:Yasqe, config:YasqeAjaxConfig = {}):PopulatedAjaxConfig {
+export function getAjaxConfig(yasqe:Yasqe.Instance, config:YasqeAjaxConfig = {}):PopulatedAjaxConfig {
   if (yasqe.config.sparql) config = merge({}, yasqe.config.sparql, config);
   if (!config.endpoint || config.endpoint.length == 0) return; // nothing to query!
 
@@ -42,7 +42,7 @@ export function getAjaxConfig(yasqe:Yasqe, config:YasqeAjaxConfig = {}):Populate
 
 };
 
-export function executeQuery(yasqe:Yasqe,config?: YasqeAjaxConfig ):Promise<any> {
+export function executeQuery(yasqe:Yasqe.Instance,config?: YasqeAjaxConfig ):Promise<any> {
   const populatedConfig = getAjaxConfig(yasqe,config);
   var queryStart = Date.now();
 
@@ -73,7 +73,7 @@ export function executeQuery(yasqe:Yasqe,config?: YasqeAjaxConfig ):Promise<any>
 
 
 export type RequestArgs = {[argName:string]: string | string[]}
-export function getUrlArguments(yasqe:Yasqe, config:YasqeAjaxConfig):RequestArgs  {
+export function getUrlArguments(yasqe:Yasqe.Instance, config:YasqeAjaxConfig):RequestArgs  {
   var queryMode = yasqe.getQueryMode();
 
   var data:RequestArgs = {}
@@ -102,7 +102,7 @@ export function getUrlArguments(yasqe:Yasqe, config:YasqeAjaxConfig):RequestArgs
 
   return data;
 };
-export function getAcceptHeader(yasqe:Yasqe, config:YasqeAjaxConfig) {
+export function getAcceptHeader(yasqe:Yasqe.Instance, config:YasqeAjaxConfig) {
   var acceptHeader = null;
     if (yasqe.getQueryMode() == "update") {
       acceptHeader = typeof config.acceptHeaderUpdate === "function"
@@ -122,7 +122,7 @@ export function getAcceptHeader(yasqe:Yasqe, config:YasqeAjaxConfig) {
   }
   return acceptHeader;
 };
-export function getAsCurlString(yasqe:Yasqe, config:YasqeAjaxConfig) {
+export function getAsCurlString(yasqe:Yasqe.Instance, config:YasqeAjaxConfig) {
   var ajaxConfig = getAjaxConfig(yasqe, config);
   var url = ajaxConfig.url;
   if (ajaxConfig.url.indexOf("http") !== 0) {

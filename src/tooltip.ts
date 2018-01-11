@@ -7,7 +7,7 @@
  */
 import * as Yasqe from './'
 
-export default function tooltip(yasqe:Yasqe, parent:HTMLDivElement, html:string) {
+export default function tooltip(yasqe:Yasqe.Instance, parent:HTMLDivElement, html:string) {
   var tooltip:HTMLDivElement
   parent.onmouseover = function() {
     if (!tooltip) {

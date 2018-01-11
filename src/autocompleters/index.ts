@@ -3,11 +3,11 @@ import Trie from "../trie";
 import { EventEmitter } from "events";
 import * as superagent from 'superagent'
 export class CompleterConfig {
-  onInitialize?: (yasqe:Yasqe) => void;//allows for e.g. registering event listeners in yasqe, like the prefix autocompleter does
-  isValidCompletionPosition: (yasqe: Yasqe) => boolean;
-  get: (yasqe: Yasqe, token?: Yasqe.Token) => Promise<string[]> | string[];
-  preProcessToken?: (yasqe: Yasqe, token: Yasqe.Token) => AutocompletionToken;
-  postProcessSuggestion?: (yasqe: Yasqe, token: AutocompletionToken, suggestedString: string) => string;
+  onInitialize?: (yasqe:Yasqe.Instance) => void;//allows for e.g. registering event listeners in yasqe, like the prefix autocompleter does
+  isValidCompletionPosition: (yasqe: Yasqe.Instance) => boolean;
+  get: (yasqe: Yasqe.Instance, token?: Yasqe.Token) => Promise<string[]> | string[];
+  preProcessToken?: (yasqe: Yasqe.Instance, token: Yasqe.Token) => AutocompletionToken;
+  postProcessSuggestion?: (yasqe: Yasqe.Instance, token: AutocompletionToken, suggestedString: string) => string;
   async: boolean;
   bulk: boolean;
   autoShow?: boolean;
@@ -22,10 +22,10 @@ export interface AutocompletionToken extends Yasqe.Token {
   from?:Partial<Yasqe.Position>
 }
 export class Completer extends EventEmitter {
-  protected yasqe: Yasqe;
+  protected yasqe: Yasqe.Instance;
   private trie: Trie;
   private config: CompleterConfig;
-  constructor(yasqe: Yasqe, config: CompleterConfig) {
+  constructor(yasqe: Yasqe.Instance, config: CompleterConfig) {
     super();
     this.yasqe = yasqe;
     this.config = config;
@@ -198,7 +198,7 @@ export class Completer extends EventEmitter {
  * Converts rdf:type to http://.../type and converts <http://...> to http://...
  * Stores additional info such as the used namespace and prefix in the token object
  */
-export function preprocessIriForCompletion(yasqe: Yasqe, token: AutocompletionToken) {
+export function preprocessIriForCompletion(yasqe: Yasqe.Instance, token: AutocompletionToken) {
   var queryPrefixes = yasqe.getPrefixesFromQuery();
   var stringToPreprocess = token.string;
   //we might be in a property path...
@@ -236,7 +236,7 @@ export function preprocessIriForCompletion(yasqe: Yasqe, token: AutocompletionTo
 }
 
 export function postprocessIriCompletion(
-  yasqe: Yasqe,
+  yasqe: Yasqe.Instance,
   token: AutocompletionToken,
   suggestedString: string
 ) {
@@ -251,7 +251,7 @@ export function postprocessIriCompletion(
 }
 
 //Use protocol relative request when served via http[s]*. Otherwise (e.g. file://, fetch via http)
-export function fetchFromLov(yasqe: Yasqe, type: "class" | "property", token: AutocompletionToken): Promise<string[]> {
+export function fetchFromLov(yasqe: Yasqe.Instance, type: "class" | "property", token: AutocompletionToken): Promise<string[]> {
   var reqProtocol = window.location.protocol.indexOf("http") === 0 ? "//" : "http://";
   const notificationKey = "autocomplete_" + type;
   if (!token || !token.string || token.string.trim().length == 0) {

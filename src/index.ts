@@ -34,30 +34,34 @@ import { merge, escape } from "lodash";
 // @ts-ignore
 // var Yasqe = CodeMirror
 
-interface Yasqe extends CodeMirror.Editor {
+interface _Yasqe extends CodeMirror.Editor {
   getDoc: () => Yasqe.Doc;
   getTokenTypeAt: (pos: CodeMirror.Position) => string;
+  getTokenAt(post:CodeMirror.Position, precise?:boolean): Yasqe.Token
   foldCode: any;
-  on(eventName: "request", handler: (instance: Yasqe, req: superagent.SuperAgentRequest) => void): void;
-  off(eventName: "request", handler: (instance: Yasqe, req: superagent.SuperAgentRequest) => void): void;
+  on(eventName: "request", handler: (instance: Yasqe.Instance, req: superagent.SuperAgentRequest) => void): void;
+  off(eventName: "request", handler: (instance: Yasqe.Instance, req: superagent.SuperAgentRequest) => void): void;
   on(
     eventName: "response",
-    handler: (instance: Yasqe, req: superagent.SuperAgentRequest, duration: number) => void
+    handler: (instance: Yasqe.Instance, req: superagent.SuperAgentRequest, duration: number) => void
   ): void;
   off(
     eventName: "response",
-    handler: (instance: Yasqe, req: superagent.SuperAgentRequest, duration: number) => void
+    handler: (instance: Yasqe.Instance, req: superagent.SuperAgentRequest, duration: number) => void
   ): void;
   showHint: (conf: Yasqe.HintConfig) => void;
-  on(eventName: "error", handler: (instance: Yasqe, err: any) => void): void;
-  off(eventName: "error", handler: (instance: Yasqe, err: any) => void): void;
-  on(eventName: "queryResults", handler: (instance: Yasqe, results: any) => void, duration: number): void;
-  off(eventName: "queryResults", handler: (instance: Yasqe, results: any, duration: number) => void): void;
+  on(eventName: "error", handler: (instance: Yasqe.Instance, err: any) => void): void;
+  off(eventName: "error", handler: (instance: Yasqe.Instance, err: any) => void): void;
+  on(eventName: "queryResults", handler: (instance: Yasqe.Instance, results: any) => void, duration: number): void;
+  off(eventName: "queryResults", handler: (instance: Yasqe.Instance, results: any, duration: number) => void): void;
   on(eventName: string, handler: (instance: any) => void): void;
   off(eventName: string, handler: (instance: any) => void): void;
 }
+function Yasqe(parent: HTMLElement, conf: Yasqe.Config = {}) {
+  return new Yasqe.Instance(parent, conf);
+}
 
-class Yasqe {
+class _Yasqe {
   private static storageNamespace = "triply";
   public autocompleters: { [name: string]: Autocompleter.Completer } = {};
   private prevQueryValid = false;
@@ -82,7 +86,7 @@ class Yasqe {
     (<any>Object).assign(this, CodeMirror.prototype, CodeMirror(this.rootEl, this.config));
 
     //Do some post processing
-    this.storage = new YStorage(Yasqe.storageNamespace);
+    this.storage = new YStorage(Yasqe.Instance.storageNamespace);
     this.drawButtons();
     var storageId = this.getStorageId();
     if (storageId) {
@@ -168,24 +172,24 @@ class Yasqe {
   static Autocompleters: { [name: string]: Autocompleter.CompleterConfig } = {};
   static registerAutocompleter(value: Autocompleter.CompleterConfig, enable = true) {
     const name = value.name;
-    Yasqe.Autocompleters[name] = value;
+    Yasqe.Instance.Autocompleters[name] = value;
     if (enable && Yasqe.defaults.autocompleters.indexOf(name) < 0) Yasqe.defaults.autocompleters.push(name);
   }
 
   static forkAutocompleter(fromCompleter: string, newCompleter: Autocompleter.CompleterConfig, enable = true) {
-    if (!Yasqe.Autocompleters[fromCompleter]) throw new Error('Autocompleter ' + fromCompleter + ' does not exist')
-    if (Yasqe.Autocompleters[newCompleter.name]) throw new Error('Completer ' + newCompleter.name + ' already exists');
+    if (!Yasqe.Instance.Autocompleters[fromCompleter]) throw new Error('Autocompleter ' + fromCompleter + ' does not exist')
+    if (Yasqe.Instance.Autocompleters[newCompleter.name]) throw new Error('Completer ' + newCompleter.name + ' already exists');
 
     const name = newCompleter.name;
-    Yasqe.Autocompleters[name] = {...Yasqe.Autocompleters[fromCompleter], ...newCompleter};
+    Yasqe.Instance.Autocompleters[name] = {...Yasqe.Instance.Autocompleters[fromCompleter], ...newCompleter};
     if (enable && Yasqe.defaults.autocompleters.indexOf(name) < 0) Yasqe.defaults.autocompleters.push(name);
   }
 
   enableCompleter(name: string): Promise<void> {
-    if (!Yasqe.Autocompleters[name])
+    if (!Yasqe.Instance.Autocompleters[name])
       return Promise.reject(new Error("Autocompleter " + name + " is not a registered autocompleter"));
     if (this.config.autocompleters.indexOf(name) < 0) this.config.autocompleters.push(name);
-    this.autocompleters[name] = new Autocompleter.Completer(this, Yasqe.Autocompleters[name]);
+    this.autocompleters[name] = new Autocompleter.Completer(this, Yasqe.Instance.Autocompleters[name]);
     return this.autocompleters[name].initialize();
   }
   disableCompleter(name: string) {
@@ -204,29 +208,29 @@ class Yasqe {
   emit(event: string, ...data: any[]) {
     CodeMirror.signal(this, event, this, ...data);
   }
-  getCompleteToken(token?: Yasqe.Token, cur?: Yasqe.Position) {
+  getCompleteToken(token?: Yasqe.Token, cur?: Yasqe.Position):Yasqe.Token {
     return getCompleteToken(this, token, cur);
   }
-  getPreviousNonWsToken(line: number, token: Yasqe.Token) {
+  getPreviousNonWsToken(line: number, token: Yasqe.Token):Yasqe.Token {
     return getPreviousNonWsToken(this, line, token);
   }
-  getNextNonWsToken(lineNumber: number, charNumber?: number) {
+  getNextNonWsToken(lineNumber: number, charNumber?: number):Yasqe.Token {
     return getNextNonWsToken(this, lineNumber, charNumber);
   }
   collapsePrefixes(collapse = true) {
     this.foldCode(findFirstPrefixLine(this), (<any>CodeMirror).fold.prefix, collapse ? "fold" : "unfold");
   }
-  query(config?: Sparql.YasqeAjaxConfig) {
+  query(config?: Sparql.YasqeAjaxConfig):any {
     return Sparql.executeQuery(this, config);
   }
 
-  getPrefixesFromQuery() {
+  getPrefixesFromQuery():Prefixes {
     return getPrefixesFromQuery(this);
   }
-  addPrefixes(prefixes: string | Prefixes) {
+  addPrefixes(prefixes: string | Prefixes):void {
     return addPrefixes(this, prefixes);
   }
-  removePrefixes(prefixes: Prefixes) {
+  removePrefixes(prefixes: Prefixes):void {
     return removePrefixes(this, prefixes);
   }
   getVariablesFromQuery() {
@@ -281,7 +285,7 @@ class Yasqe {
     var newQuery = "";
     var injected = false;
     var gotSelect = false;
-    (<any>Yasqe).runMode(this.getValue(), "sparql11", function(
+    (<any>Yasqe.Instance).runMode(this.getValue(), "sparql11", function(
       stringVal: string,
       className: string,
       row: number,
@@ -301,7 +305,7 @@ class Yasqe {
 
   getValueWithoutComments() {
     var cleanedQuery = "";
-    (<any>Yasqe).runMode(this.getValue(), "sparql11", function(stringVal: string, className: string) {
+    (<any>Yasqe.Instance).runMode(this.getValue(), "sparql11", function(stringVal: string, className: string) {
       if (className != "comment") {
         cleanedQuery += stringVal;
       }
@@ -369,7 +373,7 @@ class Yasqe {
     }
   }
 
-  public getStorageId(getter?: Yasqe.Config["persistenceId"]) {
+  public getStorageId(getter?: Yasqe.Config["persistenceId"]):string {
     const persistenceId = getter || this.config.persistenceId;
     if (!persistenceId) return undefined;
     if (typeof persistenceId === "string") return persistenceId;
@@ -409,7 +413,7 @@ class Yasqe {
     var formattedQuery = "";
     var currentLine = "";
     var stackTrace: string[] = [];
-    (<any>Yasqe).runMode(text, "sparql11", function(stringVal: string, type: string) {
+    (<any>Yasqe.Instance).runMode(text, "sparql11", function(stringVal: string, type: string) {
       stackTrace.push(type);
       var breakType = getBreakType(stringVal, type);
       if (breakType != 0) {
@@ -482,7 +486,7 @@ class Yasqe {
     }
   }
 
-  getAsCurlString(config?: Sparql.YasqeAjaxConfig) {
+  getAsCurlString(config?: Sparql.YasqeAjaxConfig):string {
     return Sparql.getAsCurlString(this, config);
   }
   drawButtons() {
@@ -667,7 +671,7 @@ class Yasqe {
   }
   handleLocalStorageQuotaFull(e: any) {
     console.warn("Localstorage quota exceeded. Clearing all queries");
-    Yasqe.clearStorage();
+    Yasqe.Instance.clearStorage();
   }
   static runMode = (<any>CodeMirror).runMode
   saveQuery() {
@@ -679,11 +683,11 @@ class Yasqe {
     );
   }
   static clearStorage() {
-    const storage = new YStorage(Yasqe.storageNamespace);
+    const storage = new YStorage(Yasqe.Instance.storageNamespace);
     storage.removeNamespace();
   }
-}
-
+};
+(<any>Object).assign(CodeMirror.prototype, _Yasqe.prototype);
 CodeMirror.registerHelper("fold", "prefix", prefixFold);
 import getDefaults from "./defaults";
 namespace Yasqe {
@@ -693,7 +697,8 @@ namespace Yasqe {
   }
   //copy the fold we registered registered
   // export var fold:any = (<any>CodeMirror).fold
-  export var defaults: Yasqe.Config = getDefaults(Yasqe);
+  export class Instance extends _Yasqe{}
+  export var defaults: Yasqe.Config = getDefaults();
   export type TokenizerState = sparql11Mode.State;
   export type Position = CodeMirror.Position;
 
@@ -738,9 +743,9 @@ namespace Yasqe {
      * By default, this feature is enabled, and the only the query value is appended to the link.
      * ps. This function should return an object which is parseable by jQuery.param (http://api.jquery.com/jQuery.param/)
      */
-    createShareLink?: (yasqe: Yasqe) => string;
-    createShortLink?: (yasqe: Yasqe, longLink: string) => Promise<string>;
-    consumeShareLink?: (yasqe: Yasqe) => void;
+    createShareLink?: (yasqe: Yasqe.Instance) => string;
+    createShortLink?: (yasqe: Yasqe.Instance, longLink: string) => Promise<string>;
+    consumeShareLink?: (yasqe: Yasqe.Instance) => void;
     /**
      * Change persistency settings for the YASQE query value. Setting the values
      * to null, will disable persistancy: nothing is stored between browser
@@ -749,21 +754,21 @@ namespace Yasqe {
      * By default, the ID is dynamically generated using the closest dom ID, to avoid collissions when using multiple YASQE items on one
      * page
      */
-    persistenceId?: ((yasqe: Yasqe) => string) | string;
+    persistenceId?: ((yasqe: Yasqe.Instance) => string) | string;
     persistencyExpire?: number; //seconds
     sparql?: {
-      queryName?: (yasqe: Yasqe) => string;
+      queryName?: (yasqe: Yasqe.Instance) => string;
       showQueryButton?: boolean;
-      endpoint?: string | ((yasqe: Yasqe) => string);
+      endpoint?: string | ((yasqe: Yasqe.Instance) => string);
       requestMethod?: "POST" | "GET";
-      acceptHeaderGraph?: string | ((yasqe: Yasqe) => string);
-      acceptHeaderSelect?: string | ((yasqe: Yasqe) => string);
-      acceptHeaderUpdate?: string | ((yasqe: Yasqe) => string);
+      acceptHeaderGraph?: string | ((yasqe: Yasqe.Instance) => string);
+      acceptHeaderSelect?: string | ((yasqe: Yasqe.Instance) => string);
+      acceptHeaderUpdate?: string | ((yasqe: Yasqe.Instance) => string);
       namedGraphs?: string[];
       defaultGraphs?: string[];
       args?: string[];
       headers?: { [key: string]: string };
-      getQueryForAjax?: (yasqe: Yasqe) => string;
+      getQueryForAjax?: (yasqe: Yasqe.Instance) => string;
       withCredentials?: boolean;
     };
     //Addon specific addon ts defs, or missing props from codemirror conf
@@ -775,6 +780,7 @@ namespace Yasqe {
     matchBrackets?: boolean;
     autocompleters?: string[];
   }
+  // export var _Yasqe = _Yasqe;
 
   //add missing static functions, added by e.g. addons
   // declare function runMode(text:string, mode:any, out:any):void
@@ -782,7 +788,7 @@ namespace Yasqe {
 //Need to assign our prototype to codemirror's, as some of the callbacks (e.g. the keymap opts)
 //give us a cm doc, instead of a yasqe + cm doc
 Autocompleter.completers.forEach(c => {
-  Yasqe.registerAutocompleter(c);
+  Yasqe.Instance.registerAutocompleter(c);
 });
-(<any>Object).assign(CodeMirror.prototype, Yasqe.prototype);
+
 export = Yasqe;

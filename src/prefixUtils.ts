@@ -1,6 +1,6 @@
 import * as Yasqe from './'
 export type Prefixes = {[prefixLabel:string]:string};
-export function addPrefixes(yasqe:Yasqe, prefixes:string |Prefixes) {
+export function addPrefixes(yasqe:Yasqe.Instance, prefixes:string |Prefixes) {
   var existingPrefixes = yasqe.getPrefixesFromQuery();
   //for backwards compatability, we stil support prefixes value as string (e.g. 'rdf: <http://fbfgfgf>'
   if (typeof prefixes == "string") {
@@ -13,7 +13,7 @@ export function addPrefixes(yasqe:Yasqe, prefixes:string |Prefixes) {
   yasqe.collapsePrefixes(false);
 };
 
-export function addPrefixAsString(yasqe:Yasqe, prefixString:string) {
+export function addPrefixAsString(yasqe:Yasqe.Instance, prefixString:string) {
   var lastPrefix = null;
   var lastPrefixLine = 0;
   var numLines = yasqe.getDoc().lineCount();
@@ -39,7 +39,7 @@ export function addPrefixAsString(yasqe:Yasqe, prefixString:string) {
   }
   yasqe.collapsePrefixes(false);
 };
-export function removePrefixes(yasqe:Yasqe, prefixes:Prefixes) {
+export function removePrefixes(yasqe:Yasqe.Instance, prefixes:Prefixes) {
   var escapeRegex = function(string:string) {
     //taken from http://stackoverflow.com/questions/3561493/is-there-a-regexp-escape-function-in-javascript/3561711#3561711
     return string.replace(/[-\/\\^$*+?.()|[\]{}]/g, "\\$&");
@@ -60,14 +60,14 @@ export function removePrefixes(yasqe:Yasqe, prefixes:Prefixes) {
  * @param cm
  * @returns {Array}
  */
-export function getPrefixesFromQuery(yasqe:Yasqe) {
+export function getPrefixesFromQuery(yasqe:Yasqe.Instance):Yasqe.Token['state']['prefixes'] {
   //Use precise here. We want to be sure we use the most up to date state. If we're
   //not, we might get outdated prefixes from the current query (creating loops such
   //as https://github.com/OpenTriply/YASGUI/issues/84)
   return yasqe.getTokenAt({ line: yasqe.getDoc().lastLine(), ch: yasqe.getDoc().getLine(yasqe.getDoc().lastLine()).length }, true).state.prefixes;
 };
 
-export function getIndentFromLine(yasqe:Yasqe, line:number, charNumber:number = 1):string {
+export function getIndentFromLine(yasqe:Yasqe.Instance, line:number, charNumber:number = 1):string {
   var token = yasqe.getTokenAt({
     line: line,
     ch: charNumber
