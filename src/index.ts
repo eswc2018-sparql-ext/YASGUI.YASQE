@@ -37,7 +37,7 @@ import { merge, escape } from "lodash";
 interface _Yasqe extends CodeMirror.Editor {
   getDoc: () => Yasqe.Doc;
   getTokenTypeAt: (pos: CodeMirror.Position) => string;
-  getTokenAt(post:CodeMirror.Position, precise?:boolean): Yasqe.Token
+  getTokenAt(post: CodeMirror.Position, precise?: boolean): Yasqe.Token;
   foldCode: any;
   on(eventName: "request", handler: (instance: Yasqe.Instance, req: superagent.SuperAgentRequest) => void): void;
   off(eventName: "request", handler: (instance: Yasqe.Instance, req: superagent.SuperAgentRequest) => void): void;
@@ -103,6 +103,9 @@ class _Yasqe {
       });
     }
     this.checkSyntax();
+    this.registerEventListeners();
+  }
+  private registerEventListeners() {
     /**
      * Register listeners
      */
@@ -134,362 +137,21 @@ class _Yasqe {
       this.updateQueryButton();
     });
   }
-  getQueryType() {
-    return this.queryType;
-  }
-  getQueryMode(): "update" | "query" {
-    switch (this.getQueryType()) {
-      case "INSERT":
-      case "DELETE":
-      case "LOAD":
-      case "CLEAR":
-      case "CREATE":
-      case "DROP":
-      case "COPY":
-      case "MOVE":
-      case "ADD":
-        return "update";
-      default:
-        return "query";
-    }
-  }
-  private notificationEls: { [key: string]: HTMLDivElement } = {};
-  showNotification(key: string, message: string) {
-    if (!this.notificationEls[key]) {
-      this.notificationEls[key] = document.createElement("div");
-      this.notificationEls[key].className = "notification " + " notif_" + key;
-      this.getWrapperElement().appendChild(this.notificationEls[key]);
-    }
-    const el = this.notificationEls[key];
-    el.style.display = "block";
-    el.innerText = message;
-  }
-  hideNotification(key: string) {
-    if (this.notificationEls[key]) {
-      this.notificationEls[key].style.display = "none";
-    }
-  }
-  static Autocompleters: { [name: string]: Autocompleter.CompleterConfig } = {};
-  static registerAutocompleter(value: Autocompleter.CompleterConfig, enable = true) {
-    const name = value.name;
-    Yasqe.Instance.Autocompleters[name] = value;
-    if (enable && Yasqe.defaults.autocompleters.indexOf(name) < 0) Yasqe.defaults.autocompleters.push(name);
-  }
 
-  static forkAutocompleter(fromCompleter: string, newCompleter: Autocompleter.CompleterConfig, enable = true) {
-    if (!Yasqe.Instance.Autocompleters[fromCompleter]) throw new Error('Autocompleter ' + fromCompleter + ' does not exist')
-    if (Yasqe.Instance.Autocompleters[newCompleter.name]) throw new Error('Completer ' + newCompleter.name + ' already exists');
-
-    const name = newCompleter.name;
-    Yasqe.Instance.Autocompleters[name] = {...Yasqe.Instance.Autocompleters[fromCompleter], ...newCompleter};
-    if (enable && Yasqe.defaults.autocompleters.indexOf(name) < 0) Yasqe.defaults.autocompleters.push(name);
-  }
-
-  enableCompleter(name: string): Promise<void> {
-    if (!Yasqe.Instance.Autocompleters[name])
-      return Promise.reject(new Error("Autocompleter " + name + " is not a registered autocompleter"));
-    if (this.config.autocompleters.indexOf(name) < 0) this.config.autocompleters.push(name);
-    this.autocompleters[name] = new Autocompleter.Completer(this, Yasqe.Instance.Autocompleters[name]);
-    return this.autocompleters[name].initialize();
-  }
-  disableCompleter(name: string) {
-    this.config.autocompleters = this.config.autocompleters.filter(a => a !== name);
-    this.autocompleters[name] = undefined;
-  }
-  autocomplete(fromAutoShow = false) {
-    if (this.getDoc().somethingSelected()) return;
-
-    for (let i in this.config.autocompleters) {
-      const completerName = this.config.autocompleters[i];
-      if (!this.autocompleters[completerName] || !this.autocompleters[completerName].autocomplete(fromAutoShow))
-        continue;
-    }
-  }
-  emit(event: string, ...data: any[]) {
+  /**
+   * Generic IDE functions
+   */
+  public emit(event: string, ...data: any[]) {
     CodeMirror.signal(this, event, this, ...data);
   }
-  getCompleteToken(token?: Yasqe.Token, cur?: Yasqe.Position):Yasqe.Token {
-    return getCompleteToken(this, token, cur);
-  }
-  getPreviousNonWsToken(line: number, token: Yasqe.Token):Yasqe.Token {
-    return getPreviousNonWsToken(this, line, token);
-  }
-  getNextNonWsToken(lineNumber: number, charNumber?: number):Yasqe.Token {
-    return getNextNonWsToken(this, lineNumber, charNumber);
-  }
-  collapsePrefixes(collapse = true) {
-    this.foldCode(findFirstPrefixLine(this), (<any>CodeMirror).fold.prefix, collapse ? "fold" : "unfold");
-  }
-  query(config?: Sparql.YasqeAjaxConfig):any {
-    return Sparql.executeQuery(this, config);
-  }
 
-  getPrefixesFromQuery():Prefixes {
-    return getPrefixesFromQuery(this);
-  }
-  addPrefixes(prefixes: string | Prefixes):void {
-    return addPrefixes(this, prefixes);
-  }
-  removePrefixes(prefixes: Prefixes):void {
-    return removePrefixes(this, prefixes);
-  }
-  getVariablesFromQuery() {
-    //Use precise here. We want to be sure we use the most up to date state. If we're
-    //not, we might get outdated info from the current query (creating loops such
-    //as https://github.com/OpenTriply/YASGUI/issues/84)
-    //on caveat: this function won't work when query is invalid (i.e. when typing)
-    const token: Yasqe.Token = this.getTokenAt(
-      { line: this.getDoc().lastLine(), ch: this.getDoc().getLine(this.getDoc().lastLine()).length },
-      true
-    );
-    const vars: string[] = [];
-    for (var v in token.state.variables) {
-      vars.push(v);
-    }
-    return vars.sort();
-  }
-  //values in the form of {?var: 'value'}, or [{?var: 'value'}]
-  getQueryWithValues(values: string | { [varName: string]: string } | Array<{ [varName: string]: string }>) {
-    if (!values) return this.getValue();
-    var injectString: string;
-    if (typeof values === "string") {
-      injectString = values;
-    } else {
-      //start building inject string
-      if (!(values instanceof Array)) values = [values];
-      var variables = values.reduce(function(vars, valueObj) {
-        for (var v in valueObj) {
-          vars[v] = v;
-        }
-        return vars;
-      }, {});
-      var varArray: string[] = [];
-      for (var v in variables) {
-        varArray.push(v);
-      }
-
-      if (!varArray.length) return this.getValue();
-      //ok, we've got enough info to start building the string now
-      injectString = "VALUES (" + varArray.join(" ") + ") {\n";
-      values.forEach(function(valueObj) {
-        injectString += "( ";
-        varArray.forEach(function(variable) {
-          injectString += valueObj[variable] || "UNDEF";
-        });
-        injectString += " )\n";
-      });
-      injectString += "}\n";
-    }
-    if (!injectString) return this.getValue();
-
-    var newQuery = "";
-    var injected = false;
-    var gotSelect = false;
-    (<any>Yasqe.Instance).runMode(this.getValue(), "sparql11", function(
-      stringVal: string,
-      className: string,
-      row: number,
-      col: number,
-      state: Yasqe.TokenizerState
-    ) {
-      if (className === "keyword" && stringVal.toLowerCase() === "select") gotSelect = true;
-      newQuery += stringVal;
-      if (gotSelect && !injected && className === "punc" && stringVal === "{") {
-        injected = true;
-        //start injecting
-        newQuery += "\n" + injectString;
-      }
-    });
-    return newQuery;
-  }
-
-  getValueWithoutComments() {
-    var cleanedQuery = "";
-    (<any>Yasqe.Instance).runMode(this.getValue(), "sparql11", function(stringVal: string, className: string) {
-      if (className != "comment") {
-        cleanedQuery += stringVal;
-      }
-    });
-    return cleanedQuery;
-  }
-
-  setCheckSyntaxErrors(isEnabled: boolean) {
-    this.config.syntaxErrorCheck = isEnabled;
-    this.checkSyntax();
-  }
-  checkSyntax() {
-    this.queryValid = true;
-
-    this.clearGutter("gutterErrorBar");
-
-    var state: Yasqe.TokenizerState = null;
-    for (var l = 0; l < this.getDoc().lineCount(); ++l) {
-      var precise = false;
-      if (!this.prevQueryValid) {
-        // we don't want cached information in this case, otherwise the
-        // previous error sign might still show up,
-        // even though the syntax error might be gone already
-        precise = true;
-      }
-
-      var token: Yasqe.Token = this.getTokenAt(
-        {
-          line: l,
-          ch: this.getDoc().getLine(l).length
-        },
-        precise
-      );
-      var state = token.state;
-      this.queryType = state.queryType;
-      if (state.OK == false) {
-        if (!this.config.syntaxErrorCheck) {
-          //the library we use already marks everything as being an error. Overwrite this class attribute.
-          const els = this.getWrapperElement().querySelectorAll(".sp-error");
-          for (let i = 0; i < els.length; i++) {
-            var el: any = els[i];
-            if (el.style) el.style.color = "black";
-          }
-          //we don't want the gutter error, so return
-          return;
-        }
-        const warningEl = drawSvgStringAsElement(imgs.warning);
-        if (state.errorMsg) {
-          tooltip(this, warningEl, escape(token.state.errorMsg));
-        } else if (state.possibleCurrent && state.possibleCurrent.length > 0) {
-          var expectedEncoded: string[] = [];
-          state.possibleCurrent.forEach(function(expected) {
-            expectedEncoded.push("<strong style='text-decoration:underline'>" + escape(expected) + "</strong>");
-          });
-          tooltip(this, warningEl, "This line is invalid. Expected: " + expectedEncoded.join(", "));
-        }
-        // warningEl.style.marginTop = "2px";
-        // warningEl.style.marginLeft = "2px";
-        warningEl.className = "parseErrorIcon";
-        this.setGutterMarker(l, "gutterErrorBar", warningEl);
-
-        this.queryValid = false;
-        break;
-      }
-    }
-  }
-
-  public getStorageId(getter?: Yasqe.Config["persistenceId"]):string {
+  public getStorageId(getter?: Yasqe.Config["persistenceId"]): string {
     const persistenceId = getter || this.config.persistenceId;
     if (!persistenceId) return undefined;
     if (typeof persistenceId === "string") return persistenceId;
     return persistenceId(this);
   }
-
-  private autoformatSelection(start: number, end: number): string {
-    var text = this.getValue();
-    text = text.substring(start, end);
-    var breakAfterArray = [
-      ["keyword", "ws", "prefixed", "ws", "uri"], // i.e. prefix declaration
-      ["keyword", "ws", "uri"] // i.e. base
-    ];
-    var breakAfterCharacters = ["{", ".", ";"];
-    var breakBeforeCharacters = ["}"];
-
-    var getBreakType = function(stringVal: string, type: string) {
-      for (var i = 0; i < breakAfterArray.length; i++) {
-        if (stackTrace.valueOf().toString() == breakAfterArray[i].valueOf().toString()) {
-          return 1;
-        }
-      }
-      for (var i = 0; i < breakAfterCharacters.length; i++) {
-        if (stringVal == breakAfterCharacters[i]) {
-          return 1;
-        }
-      }
-      for (var i = 0; i < breakBeforeCharacters.length; i++) {
-        // don't want to issue 'breakbefore' AND 'breakafter', so check
-        // current line
-        if (currentLine.trim() !== "" && stringVal == breakBeforeCharacters[i]) {
-          return -1;
-        }
-      }
-      return 0;
-    };
-    var formattedQuery = "";
-    var currentLine = "";
-    var stackTrace: string[] = [];
-    (<any>Yasqe.Instance).runMode(text, "sparql11", function(stringVal: string, type: string) {
-      stackTrace.push(type);
-      var breakType = getBreakType(stringVal, type);
-      if (breakType != 0) {
-        if (breakType == 1) {
-          formattedQuery += stringVal + "\n";
-          currentLine = "";
-        } else {
-          // (-1)
-          formattedQuery += "\n" + stringVal;
-          currentLine = stringVal;
-        }
-        stackTrace = [];
-      } else {
-        currentLine += stringVal;
-        formattedQuery += stringVal;
-      }
-      if (stackTrace.length == 1 && stackTrace[0] == "sp-ws") stackTrace = [];
-    });
-    return formattedQuery.replace(/\n\s*\n/g, "\n").trim();
-  }
-  public autoformat() {
-    if (!this.getDoc().somethingSelected()) this.execCommand("selectAll");
-    const from = this.getDoc().getCursor("start");
-
-    var to: Yasqe.Position = {
-      line: this.getDoc().getCursor("end").line,
-      ch: this.getDoc().getSelection().length
-    };
-    var absStart = this.getDoc().indexFromPos(from);
-    var absEnd = this.getDoc().indexFromPos(to);
-    // Insert additional line breaks where necessary according to the
-    // mode's syntax
-
-    const res = this.autoformatSelection(absStart, absEnd);
-
-    // Replace and auto-indent the range
-    this.operation(() => {
-      this.getDoc().replaceRange(res, from, to);
-      var startLine = this.getDoc().posFromIndex(absStart).line;
-      var endLine = this.getDoc().posFromIndex(absStart + res.length).line;
-      for (var i = startLine; i <= endLine; i++) {
-        this.indentLine(i, "smart");
-      }
-    });
-  }
-  public getUrlParams() {
-    //first try hash
-    var urlParams: { [key: string]: string } = null;
-    if (window.location.hash.length > 1) {
-      //firefox does some decoding if we're using window.location.hash (e.g. the + sign in contentType settings)
-      //Don't want this. So simply get the hash string ourselves
-      urlParams = queryString.parse(location.href.split("#")[1]);
-    }
-    if ((!urlParams || !("query" in urlParams)) && window.location.search.length > 1) {
-      //ok, then just try regular url params
-      urlParams = queryString.parse(window.location.search.substring(1));
-    }
-    return urlParams;
-  }
-  configToQueryParams() {
-    //extend existing link, so first fetch current arguments
-    var urlParams: { [key: string]: string } = {};
-    if (window.location.hash.length > 1) urlParams = queryString.parse(window.location.hash);
-    urlParams["query"] = this.getValue();
-    return urlParams;
-  }
-  queryParamsToConfig(params: { [key: string]: string }) {
-    if (params && params.query) {
-      this.setValue(params.query);
-    }
-  }
-
-  getAsCurlString(config?: Sparql.YasqeAjaxConfig):string {
-    return Sparql.getAsCurlString(this, config);
-  }
-  drawButtons() {
+  private drawButtons() {
     const buttons = document.createElement("div");
     buttons.className = "yasqe_buttons";
     this.getWrapperElement().appendChild(buttons);
@@ -629,7 +291,7 @@ class _Yasqe {
       this.updateQueryButton();
     }
   }
-  setFullscreen(fullscreen = true) {
+  public setFullscreen(fullscreen = true) {
     if (fullscreen) {
       this.setOption("fullScreen", true);
       this.emit("fullscreen-enter");
@@ -638,7 +300,7 @@ class _Yasqe {
       this.emit("fullscreen-leave");
     }
   }
-  updateQueryButton(status?: "valid" | "error") {
+  private updateQueryButton(status?: "valid" | "error") {
     if (!this.queryBtn) return;
 
     /**
@@ -669,12 +331,12 @@ class _Yasqe {
       this.queryBtn.className = this.queryBtn.className.replace("busy", "");
     }
   }
-  handleLocalStorageQuotaFull(e: any) {
+  public handleLocalStorageQuotaFull(e: any) {
     console.warn("Localstorage quota exceeded. Clearing all queries");
     Yasqe.Instance.clearStorage();
   }
-  static runMode = (<any>CodeMirror).runMode
-  saveQuery() {
+
+  public saveQuery() {
     this.storage.set(
       this.getStorageId(),
       this.getValue(),
@@ -682,11 +344,389 @@ class _Yasqe {
       this.handleLocalStorageQuotaFull
     );
   }
+
+  /**
+   * Get SPARQL query props
+   */
+  public getQueryType() {
+    return this.queryType;
+  }
+  public getQueryMode(): "update" | "query" {
+    switch (this.getQueryType()) {
+      case "INSERT":
+      case "DELETE":
+      case "LOAD":
+      case "CLEAR":
+      case "CREATE":
+      case "DROP":
+      case "COPY":
+      case "MOVE":
+      case "ADD":
+        return "update";
+      default:
+        return "query";
+    }
+  }
+  public getVariablesFromQuery() {
+    //Use precise here. We want to be sure we use the most up to date state. If we're
+    //not, we might get outdated info from the current query (creating loops such
+    //as https://github.com/OpenTriply/YASGUI/issues/84)
+    //on caveat: this function won't work when query is invalid (i.e. when typing)
+    const token: Yasqe.Token = this.getTokenAt(
+      { line: this.getDoc().lastLine(), ch: this.getDoc().getLine(this.getDoc().lastLine()).length },
+      true
+    );
+    const vars: string[] = [];
+    for (var v in token.state.variables) {
+      vars.push(v);
+    }
+    return vars.sort();
+  }
+
+  /**
+   * Sparql-related tasks
+   */
+  private autoformatSelection(start: number, end: number): string {
+    var text = this.getValue();
+    text = text.substring(start, end);
+    var breakAfterArray = [
+      ["keyword", "ws", "prefixed", "ws", "uri"], // i.e. prefix declaration
+      ["keyword", "ws", "uri"] // i.e. base
+    ];
+    var breakAfterCharacters = ["{", ".", ";"];
+    var breakBeforeCharacters = ["}"];
+
+    var getBreakType = function(stringVal: string, type: string) {
+      for (var i = 0; i < breakAfterArray.length; i++) {
+        if (stackTrace.valueOf().toString() == breakAfterArray[i].valueOf().toString()) {
+          return 1;
+        }
+      }
+      for (var i = 0; i < breakAfterCharacters.length; i++) {
+        if (stringVal == breakAfterCharacters[i]) {
+          return 1;
+        }
+      }
+      for (var i = 0; i < breakBeforeCharacters.length; i++) {
+        // don't want to issue 'breakbefore' AND 'breakafter', so check
+        // current line
+        if (currentLine.trim() !== "" && stringVal == breakBeforeCharacters[i]) {
+          return -1;
+        }
+      }
+      return 0;
+    };
+    var formattedQuery = "";
+    var currentLine = "";
+    var stackTrace: string[] = [];
+    (<any>Yasqe.Instance).runMode(text, "sparql11", function(stringVal: string, type: string) {
+      stackTrace.push(type);
+      var breakType = getBreakType(stringVal, type);
+      if (breakType != 0) {
+        if (breakType == 1) {
+          formattedQuery += stringVal + "\n";
+          currentLine = "";
+        } else {
+          // (-1)
+          formattedQuery += "\n" + stringVal;
+          currentLine = stringVal;
+        }
+        stackTrace = [];
+      } else {
+        currentLine += stringVal;
+        formattedQuery += stringVal;
+      }
+      if (stackTrace.length == 1 && stackTrace[0] == "sp-ws") stackTrace = [];
+    });
+    return formattedQuery.replace(/\n\s*\n/g, "\n").trim();
+  }
+  public autoformat() {
+    if (!this.getDoc().somethingSelected()) this.execCommand("selectAll");
+    const from = this.getDoc().getCursor("start");
+
+    var to: Yasqe.Position = {
+      line: this.getDoc().getCursor("end").line,
+      ch: this.getDoc().getSelection().length
+    };
+    var absStart = this.getDoc().indexFromPos(from);
+    var absEnd = this.getDoc().indexFromPos(to);
+    // Insert additional line breaks where necessary according to the
+    // mode's syntax
+
+    const res = this.autoformatSelection(absStart, absEnd);
+
+    // Replace and auto-indent the range
+    this.operation(() => {
+      this.getDoc().replaceRange(res, from, to);
+      var startLine = this.getDoc().posFromIndex(absStart).line;
+      var endLine = this.getDoc().posFromIndex(absStart + res.length).line;
+      for (var i = startLine; i <= endLine; i++) {
+        this.indentLine(i, "smart");
+      }
+    });
+  }
+  //values in the form of {?var: 'value'}, or [{?var: 'value'}]
+  public getQueryWithValues(values: string | { [varName: string]: string } | Array<{ [varName: string]: string }>) {
+    if (!values) return this.getValue();
+    var injectString: string;
+    if (typeof values === "string") {
+      injectString = values;
+    } else {
+      //start building inject string
+      if (!(values instanceof Array)) values = [values];
+      var variables = values.reduce(function(vars, valueObj) {
+        for (var v in valueObj) {
+          vars[v] = v;
+        }
+        return vars;
+      }, {});
+      var varArray: string[] = [];
+      for (var v in variables) {
+        varArray.push(v);
+      }
+
+      if (!varArray.length) return this.getValue();
+      //ok, we've got enough info to start building the string now
+      injectString = "VALUES (" + varArray.join(" ") + ") {\n";
+      values.forEach(function(valueObj) {
+        injectString += "( ";
+        varArray.forEach(function(variable) {
+          injectString += valueObj[variable] || "UNDEF";
+        });
+        injectString += " )\n";
+      });
+      injectString += "}\n";
+    }
+    if (!injectString) return this.getValue();
+
+    var newQuery = "";
+    var injected = false;
+    var gotSelect = false;
+    (<any>Yasqe.Instance).runMode(this.getValue(), "sparql11", function(
+      stringVal: string,
+      className: string,
+      row: number,
+      col: number,
+      state: Yasqe.TokenizerState
+    ) {
+      if (className === "keyword" && stringVal.toLowerCase() === "select") gotSelect = true;
+      newQuery += stringVal;
+      if (gotSelect && !injected && className === "punc" && stringVal === "{") {
+        injected = true;
+        //start injecting
+        newQuery += "\n" + injectString;
+      }
+    });
+    return newQuery;
+  }
+
+  public getValueWithoutComments() {
+    var cleanedQuery = "";
+    (<any>Yasqe.Instance).runMode(this.getValue(), "sparql11", function(stringVal: string, className: string) {
+      if (className != "comment") {
+        cleanedQuery += stringVal;
+      }
+    });
+    return cleanedQuery;
+  }
+
+  public setCheckSyntaxErrors(isEnabled: boolean) {
+    this.config.syntaxErrorCheck = isEnabled;
+    this.checkSyntax();
+  }
+  public checkSyntax() {
+    this.queryValid = true;
+
+    this.clearGutter("gutterErrorBar");
+
+    var state: Yasqe.TokenizerState = null;
+    for (var l = 0; l < this.getDoc().lineCount(); ++l) {
+      var precise = false;
+      if (!this.prevQueryValid) {
+        // we don't want cached information in this case, otherwise the
+        // previous error sign might still show up,
+        // even though the syntax error might be gone already
+        precise = true;
+      }
+
+      var token: Yasqe.Token = this.getTokenAt(
+        {
+          line: l,
+          ch: this.getDoc().getLine(l).length
+        },
+        precise
+      );
+      var state = token.state;
+      this.queryType = state.queryType;
+      if (state.OK == false) {
+        if (!this.config.syntaxErrorCheck) {
+          //the library we use already marks everything as being an error. Overwrite this class attribute.
+          const els = this.getWrapperElement().querySelectorAll(".sp-error");
+          for (let i = 0; i < els.length; i++) {
+            var el: any = els[i];
+            if (el.style) el.style.color = "black";
+          }
+          //we don't want the gutter error, so return
+          return;
+        }
+        const warningEl = drawSvgStringAsElement(imgs.warning);
+        if (state.errorMsg) {
+          tooltip(this, warningEl, escape(token.state.errorMsg));
+        } else if (state.possibleCurrent && state.possibleCurrent.length > 0) {
+          var expectedEncoded: string[] = [];
+          state.possibleCurrent.forEach(function(expected) {
+            expectedEncoded.push("<strong style='text-decoration:underline'>" + escape(expected) + "</strong>");
+          });
+          tooltip(this, warningEl, "This line is invalid. Expected: " + expectedEncoded.join(", "));
+        }
+        // warningEl.style.marginTop = "2px";
+        // warningEl.style.marginLeft = "2px";
+        warningEl.className = "parseErrorIcon";
+        this.setGutterMarker(l, "gutterErrorBar", warningEl);
+
+        this.queryValid = false;
+        break;
+      }
+    }
+  }
+  /**
+   * Token management
+   */
+
+  public getCompleteToken(token?: Yasqe.Token, cur?: Yasqe.Position): Yasqe.Token {
+    return getCompleteToken(this, token, cur);
+  }
+  public getPreviousNonWsToken(line: number, token: Yasqe.Token): Yasqe.Token {
+    return getPreviousNonWsToken(this, line, token);
+  }
+  public getNextNonWsToken(lineNumber: number, charNumber?: number): Yasqe.Token {
+    return getNextNonWsToken(this, lineNumber, charNumber);
+  }
+  /**
+   * Notification management
+   */
+  private notificationEls: { [key: string]: HTMLDivElement } = {};
+  public showNotification(key: string, message: string) {
+    if (!this.notificationEls[key]) {
+      this.notificationEls[key] = document.createElement("div");
+      this.notificationEls[key].className = "notification " + " notif_" + key;
+      this.getWrapperElement().appendChild(this.notificationEls[key]);
+    }
+    const el = this.notificationEls[key];
+    el.style.display = "block";
+    el.innerText = message;
+  }
+  public hideNotification(key: string) {
+    if (this.notificationEls[key]) {
+      this.notificationEls[key].style.display = "none";
+    }
+  }
+
+  /**
+   * Autocompleter management
+   */
+  public enableCompleter(name: string): Promise<void> {
+    if (!Yasqe.Instance.Autocompleters[name])
+      return Promise.reject(new Error("Autocompleter " + name + " is not a registered autocompleter"));
+    if (this.config.autocompleters.indexOf(name) < 0) this.config.autocompleters.push(name);
+    this.autocompleters[name] = new Autocompleter.Completer(this, Yasqe.Instance.Autocompleters[name]);
+    return this.autocompleters[name].initialize();
+  }
+  public disableCompleter(name: string) {
+    this.config.autocompleters = this.config.autocompleters.filter(a => a !== name);
+    this.autocompleters[name] = undefined;
+  }
+  public autocomplete(fromAutoShow = false) {
+    if (this.getDoc().somethingSelected()) return;
+
+    for (let i in this.config.autocompleters) {
+      const completerName = this.config.autocompleters[i];
+      if (!this.autocompleters[completerName] || !this.autocompleters[completerName].autocomplete(fromAutoShow))
+        continue;
+    }
+  }
+
+  /**
+   * Prefix management
+   */
+  public collapsePrefixes(collapse = true) {
+    this.foldCode(findFirstPrefixLine(this), (<any>CodeMirror).fold.prefix, collapse ? "fold" : "unfold");
+  }
+
+  public getPrefixesFromQuery(): Prefixes {
+    return getPrefixesFromQuery(this);
+  }
+  public addPrefixes(prefixes: string | Prefixes): void {
+    return addPrefixes(this, prefixes);
+  }
+  public removePrefixes(prefixes: Prefixes): void {
+    return removePrefixes(this, prefixes);
+  }
+
+  /**
+   * Querying
+   */
+  public query(config?: Sparql.YasqeAjaxConfig): any {
+    return Sparql.executeQuery(this, config);
+  }
+  public getUrlParams() {
+    //first try hash
+    var urlParams: { [key: string]: string } = null;
+    if (window.location.hash.length > 1) {
+      //firefox does some decoding if we're using window.location.hash (e.g. the + sign in contentType settings)
+      //Don't want this. So simply get the hash string ourselves
+      urlParams = queryString.parse(location.href.split("#")[1]);
+    }
+    if ((!urlParams || !("query" in urlParams)) && window.location.search.length > 1) {
+      //ok, then just try regular url params
+      urlParams = queryString.parse(window.location.search.substring(1));
+    }
+    return urlParams;
+  }
+  public configToQueryParams() {
+    //extend existing link, so first fetch current arguments
+    var urlParams: { [key: string]: string } = {};
+    if (window.location.hash.length > 1) urlParams = queryString.parse(window.location.hash);
+    urlParams["query"] = this.getValue();
+    return urlParams;
+  }
+  public queryParamsToConfig(params: { [key: string]: string }) {
+    if (params && params.query) {
+      this.setValue(params.query);
+    }
+  }
+
+  public getAsCurlString(config?: Sparql.YasqeAjaxConfig): string {
+    return Sparql.getAsCurlString(this, config);
+  }
+
+  /**
+   * Statics
+   */
+  static runMode = (<any>CodeMirror).runMode;
   static clearStorage() {
     const storage = new YStorage(Yasqe.Instance.storageNamespace);
     storage.removeNamespace();
   }
-};
+
+  static Autocompleters: { [name: string]: Autocompleter.CompleterConfig } = {};
+  static registerAutocompleter(value: Autocompleter.CompleterConfig, enable = true) {
+    const name = value.name;
+    Yasqe.Instance.Autocompleters[name] = value;
+    if (enable && Yasqe.defaults.autocompleters.indexOf(name) < 0) Yasqe.defaults.autocompleters.push(name);
+  }
+
+  static forkAutocompleter(fromCompleter: string, newCompleter: Autocompleter.CompleterConfig, enable = true) {
+    if (!Yasqe.Instance.Autocompleters[fromCompleter])
+      throw new Error("Autocompleter " + fromCompleter + " does not exist");
+    if (Yasqe.Instance.Autocompleters[newCompleter.name])
+      throw new Error("Completer " + newCompleter.name + " already exists");
+
+    const name = newCompleter.name;
+    Yasqe.Instance.Autocompleters[name] = { ...Yasqe.Instance.Autocompleters[fromCompleter], ...newCompleter };
+    if (enable && Yasqe.defaults.autocompleters.indexOf(name) < 0) Yasqe.defaults.autocompleters.push(name);
+  }
+}
 (<any>Object).assign(CodeMirror.prototype, _Yasqe.prototype);
 CodeMirror.registerHelper("fold", "prefix", prefixFold);
 import getDefaults from "./defaults";
@@ -697,7 +737,7 @@ namespace Yasqe {
   }
   //copy the fold we registered registered
   // export var fold:any = (<any>CodeMirror).fold
-  export class Instance extends _Yasqe{}
+  export class Instance extends _Yasqe {}
   export var defaults: Yasqe.Config = getDefaults();
   export type TokenizerState = sparql11Mode.State;
   export type Position = CodeMirror.Position;
