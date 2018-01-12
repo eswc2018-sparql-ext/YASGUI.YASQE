@@ -6,24 +6,15 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>YASQE</title>
   <link rel="icon"  type="image/png" href="doc/imgs/favicon.png">
+  <link rel="stylesheet" href="build/yasqe.min.css"/>
   </head>
   <body>
 
       	<div id="yasqe"></div>
 
- <script src="build/yasqe.js"></script>
+ <script src="build/yasqe.min.js"></script>
 <script type="text/javascript">
-console.log('main')
-// var yasqe = YASQE(document.getElementById("showcase"), {
-//   sparql: {
-//     showQueryButton: true,
-//     callbacks:{
-//       success: function(data){
-//         console.log("success", data);
-//       }
-//     }
-//   }
-// });
+var yasqe = Yasqe(document.getElementById("yasqe"));
 </script>
   </body>
 </html>

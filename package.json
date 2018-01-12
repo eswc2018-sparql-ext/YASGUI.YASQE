@@ -27,7 +27,7 @@
   },
   "scripts": {
     "dev": "better-npm-run dev",
-    "build": "gulp",
+    "build": "better-npm-run build",
     "upgrade-interactive": "npm-check --skip-unused -u",
     "prettify": "prettier --parser typescript --write $(find ./src -regex '.*\\.tsx?$') && prettier --parser css --write $(find ./src -regex '.*\\.?scss$')"
   },
@@ -37,7 +37,14 @@
       "env": {
         "NODE_ENV": "development"
       }
+    },
+    "build": {
+      "command": "webpack --colors --display-error-details --config ./webpack/config.js",
+      "env": {
+        "NODE_ENV": "production"
+      }
     }
+
   },
   "dependencies": {
     "@types/codemirror": "0.0.53",

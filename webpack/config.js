@@ -26,6 +26,7 @@ if (isDev) {
   );
 } else {
   plugins.push(new UglifyJsPlugin({ minimize: true }));
+  plugins.push(new ExtractTextPlugin( libraryName.toLowerCase() + ".min.css" ))
   outputFile = libraryName.toLowerCase() + ".min.js";
 }
 
