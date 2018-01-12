@@ -291,6 +291,13 @@ class _Yasqe {
       this.updateQueryButton();
     }
   }
+  public duplicateLine() {
+    const cur = this.getDoc().getCursor();
+    if (cur) {
+      const line = this.getDoc().getLine(cur.line);
+      this.getDoc().replaceRange(line + "\n" + line, { ch: 0, line: cur.line }, { ch: line.length, line: cur.line });
+    }
+  }
   public setFullscreen(fullscreen = true) {
     if (fullscreen) {
       this.setOption("fullScreen", true);
@@ -337,6 +344,8 @@ class _Yasqe {
   }
 
   public saveQuery() {
+    if (!this.storage) return;
+    console.log(this.storage);
     this.storage.set(
       this.getStorageId(),
       this.getValue(),
@@ -440,6 +449,46 @@ class _Yasqe {
     });
     return formattedQuery.replace(/\n\s*\n/g, "\n").trim();
   }
+
+  commentLines() {
+    var startLine = this.getDoc().getCursor("start").line;
+    var endLine = this.getDoc().getCursor("end").line;
+    var min = Math.min(startLine, endLine);
+    var max = Math.max(startLine, endLine);
+
+    // if all lines start with #, remove this char. Otherwise add this char
+    var linesAreCommented = true;
+    for (var i = min; i <= max; i++) {
+      var line = this.getDoc().getLine(i);
+      if (line.length == 0 || line.substring(0, 1) != "#") {
+        linesAreCommented = false;
+        break;
+      }
+    }
+    for (var i = min; i <= max; i++) {
+      if (linesAreCommented) {
+        // lines are commented, so remove comments
+        this.getDoc().replaceRange(
+          "",
+          {
+            line: i,
+            ch: 0
+          },
+          {
+            line: i,
+            ch: 1
+          }
+        );
+      } else {
+        // Not all lines are commented, so add comments
+        this.getDoc().replaceRange("#", {
+          line: i,
+          ch: 0
+        });
+      }
+    }
+  }
+
   public autoformat() {
     if (!this.getDoc().somethingSelected()) this.execCommand("selectAll");
     const from = this.getDoc().getCursor("start");

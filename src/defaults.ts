@@ -35,34 +35,44 @@ SELECT * WHERE {
       "Ctrl-Space": function(yasqe: Yasqe.Instance) {
         yasqe.autocomplete();
       },
-      //   "Ctrl-Space": YASQE.autoComplete,
-      //
-      //   "Cmd-Space": YASQE.autoComplete,
-      // "Ctrl-d": function(yasqe: Yasqe.Instance) {
-      //
-      //   return yasqe.getDoc().removeLine(yasqe.getDoc().getCursor().line);
-      // },
       "Shift-Ctrl-K": function(yasqe: Yasqe.Instance) {
-        return yasqe.getDoc().removeLine(yasqe.getDoc().getCursor().line);
+        const lineNumber = yasqe.getDoc().getCursor().line;
+        if (lineNumber === yasqe.getDoc().lastLine() && lineNumber > 1) {
+          //delete current line, and the linebreak just before
+          return yasqe
+            .getDoc()
+            .replaceRange(
+              "",
+              { ch: yasqe.getDoc().getLine(lineNumber - 1).length, line: lineNumber - 1 },
+              { ch: yasqe.getDoc().getLine(lineNumber).length, line: lineNumber }
+            );
+        } else {
+          //delete current line including the linebreak after
+          return yasqe.getDoc().replaceRange("", { ch: 0, line: lineNumber }, { ch: 0, line: lineNumber + 1 });
+        }
       },
       //   "Cmd-D": YASQE.deleteLine,
       //   "Cmd-K": YASQE.deleteLine,
-      //   "Ctrl-/": YASQE.commentLines,
+        "Ctrl-/": function(yasqe: Yasqe.Instance) {
+          yasqe.commentLines();
+        },
       //   "Cmd-/": YASQE.commentLines,
       //   "Ctrl-Alt-Down": YASQE.copyLineDown,
       //   "Ctrl-Alt-Up": YASQE.copyLineUp,
       //   "Cmd-Alt-Down": YASQE.copyLineDown,
       //   "Cmd-Alt-Up": YASQE.copyLineUp,
-
-        "Shift-Ctrl-F": function(yasqe:Yasqe.Instance) {
-          yasqe.autoformat();
-        },
+      "Shift-Ctrl-D": function(yasqe: Yasqe.Instance) {
+        yasqe.duplicateLine();
+      },
+      "Shift-Ctrl-F": function(yasqe: Yasqe.Instance) {
+        yasqe.autoformat();
+      },
       //   "Ctrl-]": YASQE.indentMore,
       //   "Cmd-]": YASQE.indentMore,
       //   "Ctrl-[": YASQE.indentLess,
       //   "Cmd-[": YASQE.indentLess,
-        "Ctrl-S": function(yasqe:Yasqe.Instance) {
-        yasqe.saveQuery()
+      "Ctrl-S": function(yasqe: Yasqe.Instance) {
+        yasqe.saveQuery();
       },
       "Ctrl-Enter": function(yasqe: Yasqe.Instance) {
         return yasqe.query();
