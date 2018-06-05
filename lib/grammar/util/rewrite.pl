@@ -8,7 +8,7 @@ stephen.cresswell@tso.co.uk
 
 
 ebnf_to_bnf:-
-	retractall(_'=>'_),
+	retractall('=>'),
 	remember(change),
 	rewrite_until_stable.
 

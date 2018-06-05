@@ -23,9 +23,13 @@ stephen.cresswell@tso.co.uk
 
 :-dynamic '==>'/2.
 
-sparql11 ==> [prologue,(queryAll or updateAll), $].
+#sparql11 ==> [prologue,(queryAll or updateAll), $].
 queryUnit ==> [query,$].
 updateUnit ==> [update,$].
+sparql11 ==> [template,$].
+
+template ==> 
+	[prologue,templateClause,*(datasetClause),whereClause,solutionModifier,valuesClause].
 
 query ==> 
 	[prologue,or(selectQuery,constructQuery,describeQuery,askQuery),valuesClause].
@@ -67,6 +71,39 @@ constructQuery ==>
  	 [constructTemplate,*(datasetClause),whereClause,solutionModifier] 
          or
 	 [*(datasetClause),'WHERE','{',?(triplesTemplate),'}',solutionModifier]].
+
+templateClause ==> 
+	['TEMPLATE',?(nameArg),'{',
+	  *(tExpression),
+	  ?([';','SEPARATOR','=',string]),
+  '}'].
+
+tExpression ==> 
+	[or(primaryExpression,box,format,group)].
+
+nameArg ==> 
+	[iriRef,?[varList]].
+
+varList ==>
+  ['(',*(var),')']
+
+group ==>
+	['GROUP',?('DISTINCT'),'{',
+	  *(or(primaryExpression,box,format)),
+	  ?([';','SEPARATOR','=',string]),
+  '}'].
+
+box ==>
+	['BOX','{',
+	  *(tExpression),
+  '}'].
+
+format ==>
+	['FORMAT','{',
+	  primaryExpression,
+	  +(tExpression),
+  '}'].
+
 
 describeQuery ==> 
 	['DESCRIBE',+(varOrIRIref) or '*',
@@ -297,6 +334,7 @@ inlineDataOneVar ==> [var,'{',*(dataBlockValue),'}'].
 inlineDataFull ==> [ 'NIL' or ['(',*(var),')'], 
                         '{',*(['(',*(dataBlockValue),')'] or 'NIL'),'}'].
 %[65]
+#dataBlockValue ==> [expression].
 dataBlockValue ==> [iriRef].
 dataBlockValue ==> [rdfLiteral].
 dataBlockValue ==> [numericLiteral].
@@ -521,6 +559,7 @@ primaryExpression ==> [aggregate].
 %[120]
 brackettedExpression ==> ['(',expression,')'].
 %[121]
+builtInCall ==> ['UNNEST','(',expression,')'].
 builtInCall ==> ['STR','(',expression,')'].
 builtInCall ==> ['LANG','(',expression,')'].
 builtInCall ==> ['LANGMATCHES','(',expression,',',expression,')'].
@@ -600,6 +639,7 @@ aggregate ==> ['MIN','(',?('DISTINCT'),expression,')'].
 aggregate ==> ['MAX','(',?('DISTINCT'),expression,')'].
 aggregate ==> ['AVG','(',?('DISTINCT'),expression,')'].
 aggregate ==> ['SAMPLE','(',?('DISTINCT'),expression,')'].
+aggregate ==> ['AGGREGATE','(',?('DISTINCT'),expression,')'].
 aggregate ==> 
 	['GROUP_CONCAT','(',
 	 ?('DISTINCT'),
@@ -794,7 +834,16 @@ tm_keywords([
 'SAMPLE',
 'SEPARATOR',
 
-'STR'
+'STR',
+
+
+
+'TEMPLATE',
+'BOX',
+'FORMAT',
+'PRAGMA',
+'AGGREGATE',
+'UNNEST'
 ]).
 
 % Other tokens representing fixed, case sensitive, strings
